@@ -46,6 +46,7 @@ function init_least_square_primals!(solver::MadNLP.MadNLPSolver)
 end
 
 function initialize!(solver::MadNLP.MadNLPSolver{T}) where T
+    opt = solver.opt
     # Initialization
     MadNLP.initialize!(
         solver.cb,
@@ -54,15 +55,17 @@ function initialize!(solver::MadNLP.MadNLPSolver{T}) where T
         solver.xu,
         solver.y,
         solver.rhs,
-        solver.ind_ineq,
-        solver.opt
+        solver.ind_ineq;
+        tol=opt.tol,
+        bound_push=opt.bound_push,
+        bound_fac=opt.bound_fac,
     )
 
     MadNLP.eval_cons_wrapper!(solver, solver.c, solver.x)
 
     fill!(solver.jacl, zero(T))
-    fill!(solver.zl_r, solver.opt.bound_push)
-    fill!(solver.zu_r, solver.opt.bound_push)
+    fill!(solver.zl_r, opt.bound_push)
+    fill!(solver.zu_r, opt.bound_push)
 
     # init_least_square_primals!(solver)
 
@@ -70,20 +73,22 @@ function initialize!(solver::MadNLP.MadNLPSolver{T}) where T
         MadNLP.full(solver.x),
         MadNLP.full(solver.xl),
         MadNLP.full(solver.xu),
-        solver.opt.bound_push, solver.opt.bound_fac
+        opt.bound_push, opt.bound_fac
     )
 
     # Initializing scaling factors
-    MadNLP.set_scaling!(
-        solver.cb,
-        solver.x,
-        solver.xl,
-        solver.xu,
-        solver.y,
-        solver.rhs,
-        solver.ind_ineq,
-        solver.opt.nlp_scaling_max_gradient
-    )
+    if opt.nlp_scaling
+        MadNLP.set_scaling!(
+            solver.cb,
+            solver.x,
+            solver.xl,
+            solver.xu,
+            solver.y,
+            solver.rhs,
+            solver.ind_ineq,
+            opt.nlp_scaling_max_gradient
+        )
+    end
 
     MadNLP.initialize!(solver.kkt)
 
@@ -99,8 +104,8 @@ function initialize!(solver::MadNLP.MadNLPSolver{T}) where T
     theta = MadNLP.get_theta(solver.c)
     solver.theta_max = 1e4*max(1,theta)
     solver.theta_min = 1e-4*max(1,theta)
-    solver.mu = solver.opt.mu_init
-    solver.tau = max(solver.opt.tau_min,1-solver.opt.mu_init)
+    solver.mu = opt.mu_init
+    solver.tau = max(opt.tau_min,1-opt.mu_init)
 
     return MadNLP.REGULAR
 end
@@ -286,8 +291,6 @@ end
 function mpc!(solver::MadNLP.AbstractMadNLPSolver)
     ind_cons = MadNLP.get_index_constraints(
         solver.nlp,
-        solver.opt.fixed_variable_treatment,
-        solver.opt.equality_treatment,
     )
     nlb, nub = length(ind_cons.ind_lb), length(ind_cons.ind_ub)
     correction_lb = zeros(nlb)
@@ -391,65 +394,9 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         )
 
         #####
-        # Gondzio's additional correction
-        #####
-        # max_ncorr = 4
-        # δ = 0.1
-        # γ = 0.1
-        # βmin = 0.1
-        # βmax = 10.0
-        # Δp = similar(solver.d.values)
-        # for ncorr in 1:max_ncorr
-        #     # Enlarge step sizes in primal and dual spaces.
-        #     tilde_alpha_p = min(alpha_p + δ, 1.0)
-        #     tilde_alpha_d = min(alpha_d + δ, 1.0)
-        #     # Apply Mehrotra's heuristic for centering parameter mu.
-        #     ga = get_affine_complementarity_measure(solver, tilde_alpha_p, tilde_alpha_d)
-        #     g = mu_curr
-        #     mu = (ga / g)^2 * ga    # Eq. (12)
-
-        #     # Add additional correction
-        #     set_extra_correction!(
-        #         solver, correction_lb, correction_ub,
-        #         tilde_alpha_p, tilde_alpha_d, βmin, βmax, mu,
-        #     )
-
-        #     # Update RHS.
-        #     set_corrective_rhs!(solver, solver.kkt, mu, correction_lb, correction_ub, ind_cons.ind_lb, ind_cons.ind_ub)
-        #     # Solve KKT linear system.
-        #     copyto!(Δp, solver.d.values)
-        #     MadNLP.solve_refine_wrapper!(solver, solver.d, solver.p)
-        #     finish_corrective_aug_solve!(solver, solver.kkt, correction_lb, correction_ub, mu)
-
-        #     hat_alpha_p = get_alpha_max_primal(
-        #         MadNLP.primal(solver.x),
-        #         MadNLP.primal(solver.xl),
-        #         MadNLP.primal(solver.xu),
-        #         MadNLP.primal(solver.d),
-        #         tau,
-        #     )
-        #     hat_alpha_d = get_alpha_max_dual(
-        #         solver.zl_r,
-        #         solver.zu_r,
-        #         MadNLP.dual_lb(solver.d),
-        #         MadNLP.dual_ub(solver.d),
-        #         tau,
-        #     )
-        #     # Stop extra correction if the stepsize does not increase sufficiently
-        #     # if (hat_alpha_p < alpha_p + γ * δ) || (hat_alpha_d < alpha_d + γ * δ)
-        #     if (hat_alpha_p < 1.01 * alpha_p) || (hat_alpha_d < 1.01 * alpha_d)
-        #         copyto!(solver.d.values, Δp)
-        #         break
-        #     else
-        #         alpha_p = hat_alpha_p
-        #         alpha_d = hat_alpha_d
-        #     end
-        # end
-
-        #####
         # Next trial point
         #####
-        solver.alpha = 0.9995 * min(alpha_p, alpha_d)
+        solver.alpha = min(alpha_p, alpha_d)
         solver.alpha_z = solver.alpha
         # Update primal-dual solution
         axpy!(solver.alpha, MadNLP.primal(solver.d), MadNLP.primal(solver.x))
