@@ -146,21 +146,21 @@ function get_affine_complementarity_measure(solver::MadNLP.MadNLPSolver, alpha_p
     if m1 + m2 == 0
         return 0.0
     end
-    dz1 =  MadNLP.dual_lb(solver.d)
-    dz2 =  MadNLP.dual_ub(solver.d)
+    dzlb =  MadNLP.dual_lb(solver.d)
+    dzub =  MadNLP.dual_ub(solver.d)
     @assert all(isfinite, solver.d.values)
 
     inf_compl = 0.0
     @inbounds @simd for i in 1:m1
         x_lb = solver.xl_r[i]
         x_ = solver.x_lr[i] + alpha_p * solver.dx_lr[i]
-        z_ = solver.zl_r[i] + alpha_d * dz1[i]
+        z_ = solver.zl_r[i] + alpha_d * dzlb[i]
         inf_compl += (x_ - x_lb) * z_
     end
     @inbounds @simd for i in 1:m2
         x_ub = solver.xu_r[i]
         x_ = solver.x_ur[i] + alpha_p * solver.dx_ur[i]
-        z_ = solver.zu_r[i] + alpha_d * dz2[i]
+        z_ = solver.zu_r[i] + alpha_d * dzub[i]
         inf_compl += (x_ub - x_) * z_
     end
 
@@ -290,7 +290,9 @@ end
 # Predictor-corrector method
 function mpc!(solver::MadNLP.AbstractMadNLPSolver)
     ind_cons = MadNLP.get_index_constraints(
-        solver.nlp,
+        solver.nlp;
+        fixed_variable_treatment=MadNLP.MakeParameter,
+        equality_treatment=MadNLP.EnforceEquality,
     )
     nlb, nub = length(ind_cons.ind_lb), length(ind_cons.ind_ub)
     correction_lb = zeros(nlb)
@@ -321,7 +323,7 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         #####
         # Termination criteria
         #####
-        if max(solver.inf_pr,solver.inf_du,solver.inf_compl) <= solver.opt.tol
+        if max(solver.inf_pr,solver.inf_du) <= solver.opt.tol
             return MadNLP.SOLVE_SUCCEEDED
         elseif solver.cnt.k >= solver.opt.max_iter
             return MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
@@ -369,7 +371,10 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         sigma = has_inequalities ? (mu_affine / mu_curr)^3 : 1.0
         sigma = clamp(sigma, 1e-6, 10.0)
         mu = max(solver.opt.mu_min, sigma * mu_curr)
-        tau = MadNLP.get_tau(mu, solver.opt.tau_min)
+
+        # tau = 0.995 #clamp(1 - mu, solver.opt.tau_min, 1 - 1e-6)
+        # tau = 0.9995
+        tau = max(1-mu, solver.opt.tau_min)
         solver.mu = mu
 
         #####
@@ -392,6 +397,62 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
             MadNLP.dual_ub(solver.d),
             tau,
         )
+
+        #####
+        # Gondzio's additional correction
+        #####
+        max_ncorr = 0
+        δ = 0.1
+        γ = 0.1
+        βmin = 0.1
+        βmax = 10.0
+        Δp = similar(solver.d.values)
+
+        for ncorr in 1:max_ncorr
+            # Enlarge step sizes in primal and dual spaces.
+            tilde_alpha_p = min(alpha_p + δ, 1.0)
+            tilde_alpha_d = min(alpha_d + δ, 1.0)
+            # Apply Mehrotra's heuristic for centering parameter mu.
+            ga = get_affine_complementarity_measure(solver, tilde_alpha_p, tilde_alpha_d)
+            g = mu_curr
+            mu = (ga / g)^2 * ga    # Eq. (12)
+
+            # Add additional correction
+            set_extra_correction!(
+                solver, correction_lb, correction_ub,
+                tilde_alpha_p, tilde_alpha_d, βmin, βmax, mu,
+            )
+
+            # Update RHS.
+            set_corrective_rhs!(solver, solver.kkt, mu, correction_lb, correction_ub, ind_cons.ind_lb, ind_cons.ind_ub)
+            # Solve KKT linear system.
+            copyto!(Δp, solver.d.values)
+            MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w4)
+
+            hat_alpha_p = get_alpha_max_primal(
+                MadNLP.primal(solver.x),
+                MadNLP.primal(solver.xl),
+                MadNLP.primal(solver.xu),
+                MadNLP.primal(solver.d),
+                tau,
+            )
+            hat_alpha_d = get_alpha_max_dual(
+                solver.zl_r,
+                solver.zu_r,
+                MadNLP.dual_lb(solver.d),
+                MadNLP.dual_ub(solver.d),
+                tau,
+            )
+            # Stop extra correction if the stepsize does not increase sufficiently
+            # if (hat_alpha_p < alpha_p + γ * δ) || (hat_alpha_d < alpha_d + γ * δ)
+            if (hat_alpha_p < 1.005 * alpha_p) || (hat_alpha_d < 1.005 * alpha_d)
+                copyto!(solver.d.values, Δp)
+                break
+            else
+                alpha_p = hat_alpha_p
+                alpha_d = hat_alpha_d
+            end
+        end
 
         #####
         # Next trial point
