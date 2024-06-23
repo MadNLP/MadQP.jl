@@ -288,7 +288,7 @@ function set_extra_correction!(
 end
 
 # Predictor-corrector method
-function mpc!(solver::MadNLP.AbstractMadNLPSolver)
+function mpc!(solver::MadNLP.AbstractMadNLPSolver; max_ncorr=5)
     ind_cons = MadNLP.get_index_constraints(
         solver.nlp;
         fixed_variable_treatment=MadNLP.MakeParameter,
@@ -299,6 +299,7 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
     correction_ub = zeros(nub)
 
     has_inequalities = (nlb + nub > 0)
+    Δp = similar(solver.d.values)
 
     while true
         # A' y
@@ -323,7 +324,7 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         #####
         # Termination criteria
         #####
-        if max(solver.inf_pr,solver.inf_du) <= solver.opt.tol
+        if max(solver.inf_pr,solver.inf_du,solver.inf_compl) <= solver.opt.tol
             return MadNLP.SOLVE_SUCCEEDED
         elseif solver.cnt.k >= solver.opt.max_iter
             return MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
@@ -401,12 +402,10 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         #####
         # Gondzio's additional correction
         #####
-        max_ncorr = 0
         δ = 0.1
         γ = 0.1
         βmin = 0.1
         βmax = 10.0
-        Δp = similar(solver.d.values)
 
         for ncorr in 1:max_ncorr
             # Enlarge step sizes in primal and dual spaces.
