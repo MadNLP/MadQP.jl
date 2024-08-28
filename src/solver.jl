@@ -125,42 +125,26 @@ function get_complementarity_measure(solver::MadNLP.MadNLPSolver)
     return inf_compl / (m1 + m2)
 end
 
-function get_affine_complementarity_measure2(solver::MadNLP.MadNLPSolver, alpha::Float64)
-    m1, m2 = length(solver.x_lr), length(solver.x_ur)
-    dz1 =  MadNLP.dual_lb(solver.d)
-    dz2 =  MadNLP.dual_ub(solver.d)
-
-    inf_compl = 0.0
-    @inbounds @simd for i in 1:m1
-        inf_compl += (solver.x_trial_lr[i]-solver.xl_r[i])*(solver.zl_r[i] + alpha * dz1[i])
-    end
-    @inbounds @simd for i in 1:m2
-        inf_compl += (solver.xu_r[i]-solver.x_trial_ur[i])*(solver.zu_r[i] + alpha * dz2[i])
-    end
-
-    return inf_compl / (m1 + m2)
-end
-
 function get_affine_complementarity_measure(solver::MadNLP.MadNLPSolver, alpha_p::Float64, alpha_d::Float64)
     m1, m2 = length(solver.x_lr), length(solver.x_ur)
     if m1 + m2 == 0
         return 0.0
     end
-    dz1 =  MadNLP.dual_lb(solver.d)
-    dz2 =  MadNLP.dual_ub(solver.d)
+    dzlb =  MadNLP.dual_lb(solver.d)
+    dzub =  MadNLP.dual_ub(solver.d)
     @assert all(isfinite, solver.d.values)
 
     inf_compl = 0.0
     @inbounds @simd for i in 1:m1
         x_lb = solver.xl_r[i]
         x_ = solver.x_lr[i] + alpha_p * solver.dx_lr[i]
-        z_ = solver.zl_r[i] + alpha_d * dz1[i]
+        z_ = solver.zl_r[i] + alpha_d * dzlb[i]
         inf_compl += (x_ - x_lb) * z_
     end
     @inbounds @simd for i in 1:m2
         x_ub = solver.xu_r[i]
         x_ = solver.x_ur[i] + alpha_p * solver.dx_ur[i]
-        z_ = solver.zu_r[i] + alpha_d * dz2[i]
+        z_ = solver.zu_r[i] + alpha_d * dzub[i]
         inf_compl += (x_ub - x_) * z_
     end
 
@@ -247,6 +231,7 @@ function get_correction!(
     return
 end
 
+# Gondzio's multi-correction scheme
 function set_extra_correction!(
     solver::MadNLP.MadNLPSolver,
     correction_lb, correction_ub,
@@ -255,7 +240,6 @@ function set_extra_correction!(
     dx = MadNLP.primal(solver.d)
     dlb = MadNLP.dual_lb(solver.d)
     dub = MadNLP.dual_ub(solver.d)
-
     tmin, tmax = βmin * μ , βmax * μ
     # / Lower-bound
     for i in eachindex(dlb)
@@ -270,7 +254,6 @@ function set_extra_correction!(
             0.0
         end
     end
-
     # / Upper-bound
     for i in eachindex(dub)
         x_ = solver.xu_r[i] - alpha_p * solver.dx_ur[i] - solver.x_ur[i]
@@ -287,16 +270,102 @@ function set_extra_correction!(
     return
 end
 
+function get_fraction_to_boundary_step(solver, tau)
+    alpha_p = get_alpha_max_primal(
+        MadNLP.primal(solver.x),
+        MadNLP.primal(solver.xl),
+        MadNLP.primal(solver.xu),
+        MadNLP.primal(solver.d),
+        tau,
+    )
+    alpha_d = get_alpha_max_dual(
+        solver.zl_r,
+        solver.zu_r,
+        MadNLP.dual_lb(solver.d),
+        MadNLP.dual_ub(solver.d),
+        tau,
+    )
+    return (alpha_p, alpha_d)
+end
+
+function affine_step!(solver::MadNLP.AbstractMadNLPSolver)
+    set_predictive_rhs!(solver, solver.kkt)
+    is_solved = MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w4)
+    return get_fraction_to_boundary_step(solver, 1.0)
+end
+
+function mehrotra_correction_step!(solver, correction_lb, correction_ub, ind_cons)
+    set_corrective_rhs!(solver, solver.kkt, solver.mu, correction_lb, correction_ub, ind_cons.ind_lb, ind_cons.ind_ub)
+    is_solved = MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w4)
+    solver.tau = max(1-solver.mu, solver.opt.tau_min)
+    return get_fraction_to_boundary_step(solver, solver.tau)
+end
+
+function gondzio_correction_step!(solver, correction_lb, correction_ub, ind_cons, mu_curr, max_ncorr)
+    δ = 0.1
+    γ = 0.1
+    βmin = 0.1
+    βmax = 10.0
+    # Load buffer for descent direction.
+    Δp = solver._w3.values
+
+    # TODO: this may be redundant with (alpha_p, alpha_d) computed in Mehrotra correction step.
+    alpha_p, alpha_d = get_fraction_to_boundary_step(solver, solver.tau)
+
+    for ncorr in 1:max_ncorr
+        # Enlarge step sizes in primal and dual spaces.
+        tilde_alpha_p = min(alpha_p + δ, 1.0)
+        tilde_alpha_d = min(alpha_d + δ, 1.0)
+        # Apply Mehrotra's heuristic for centering parameter mu.
+        ga = get_affine_complementarity_measure(solver, tilde_alpha_p, tilde_alpha_d)
+        g = mu_curr
+        mu = (ga / g)^2 * ga                    # Eq. (12)
+        # Add additional correction.
+        set_extra_correction!(
+            solver, correction_lb, correction_ub,
+            tilde_alpha_p, tilde_alpha_d, βmin, βmax, mu,
+        )
+        # Update RHS.
+        set_corrective_rhs!(
+            solver,
+            solver.kkt,
+            mu,
+            correction_lb,
+            correction_ub,
+            ind_cons.ind_lb,
+            ind_cons.ind_ub,
+        )
+        # Solve KKT linear system.
+        copyto!(Δp, solver.d.values)
+        MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w4)
+        hat_alpha_p, hat_alpha_d = get_fraction_to_boundary_step(solver, solver.tau)
+
+        # Stop extra correction if the stepsize does not increase sufficiently
+        if (hat_alpha_p < 1.005 * alpha_p) || (hat_alpha_d < 1.005 * alpha_d)
+            copyto!(solver.d.values, Δp)
+            break
+        else
+            alpha_p = hat_alpha_p
+            alpha_d = hat_alpha_d
+        end
+    end
+
+    return alpha_p, alpha_d
+end
+
 # Predictor-corrector method
-function mpc!(solver::MadNLP.AbstractMadNLPSolver)
+function mpc!(solver::MadNLP.AbstractMadNLPSolver; max_ncorr=0)
     ind_cons = MadNLP.get_index_constraints(
-        solver.nlp,
+        solver.nlp;
+        fixed_variable_treatment=MadNLP.MakeParameter,
+        equality_treatment=MadNLP.EnforceEquality,
     )
     nlb, nub = length(ind_cons.ind_lb), length(ind_cons.ind_ub)
+    has_inequalities = (nlb + nub > 0)
+
+    # Buffers for multiple correction scheme.
     correction_lb = zeros(nlb)
     correction_ub = zeros(nub)
-
-    has_inequalities = (nlb + nub > 0)
 
     while true
         # A' y
@@ -336,62 +405,45 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         #####
         # Prediction step
         #####
-
-        set_predictive_rhs!(solver, solver.kkt)
-        is_solved = MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w4)
-
-        # Stepsize
-        alpha_p = get_alpha_max_primal(
-            MadNLP.primal(solver.x),
-            MadNLP.primal(solver.xl),
-            MadNLP.primal(solver.xu),
-            MadNLP.primal(solver.d),
-            1.0,
-        )
-        alpha_d = get_alpha_max_dual(
-            solver.zl_r,
-            solver.zu_r,
-            MadNLP.dual_lb(solver.d),
-            MadNLP.dual_ub(solver.d),
-            1.0,
-        )
+        alpha_p, alpha_d = affine_step!(solver)
         alpha_aff = min(alpha_p, alpha_d)
-
-        # Primal step
         mu_affine = get_affine_complementarity_measure(solver, alpha_aff, alpha_aff)
         get_correction!(solver, correction_lb, correction_ub)
 
         #####
         # Update barrier
         #####
-        # μ = y' s / m
-        mu_curr = get_complementarity_measure(solver)
-        sigma = has_inequalities ? (mu_affine / mu_curr)^3 : 1.0
-        sigma = clamp(sigma, 1e-6, 10.0)
-        mu = max(solver.opt.mu_min, sigma * mu_curr)
-        tau = MadNLP.get_tau(mu, solver.opt.tau_min)
-        solver.mu = mu
+        mu_curr = get_complementarity_measure(solver)             # μ = y' s / m
+        sigma = if has_inequalities
+            clamp((mu_affine / mu_curr)^3, 1e-6, 10.0)
+        else
+            1.0
+        end
+        solver.mu = max(solver.opt.mu_min, sigma * mu_curr)
 
         #####
         # Mehrotra's Correction step
         #####
-        set_corrective_rhs!(solver, solver.kkt, mu, correction_lb, correction_ub, ind_cons.ind_lb, ind_cons.ind_ub)
-        is_solved = MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w4)
+        alpha_p, alpha_d = mehrotra_correction_step!(
+            solver,
+            correction_lb,
+            correction_ub,
+            ind_cons,
+        )
 
-        alpha_p = get_alpha_max_primal(
-            MadNLP.primal(solver.x),
-            MadNLP.primal(solver.xl),
-            MadNLP.primal(solver.xu),
-            MadNLP.primal(solver.d),
-            tau,
-        )
-        alpha_d = get_alpha_max_dual(
-            solver.zl_r,
-            solver.zu_r,
-            MadNLP.dual_lb(solver.d),
-            MadNLP.dual_ub(solver.d),
-            tau,
-        )
+        #####
+        # Gondzio's additional correction
+        #####
+        if max_ncorr > 0
+            alpha_p, alpha_d = gondzio_correction_step!(
+                solver,
+                correction_lb,
+                correction_ub,
+                ind_cons,
+                mu_curr,
+                max_ncorr,
+            )
+        end
 
         #####
         # Next trial point
@@ -418,6 +470,7 @@ end
 
 function solve!(
     solver::MadNLP.MadNLPSolver;
+    max_ncorr=0,
     kwargs...
 )
     stats = MadNLP.MadNLPExecutionStats(solver)
@@ -425,7 +478,6 @@ function solve!(
     solver.cnt.start_time = time()
 
     if !isempty(kwargs)
-        @warn(solver.logger,"The options set during resolve may not have an effect")
         MadNLP.set_options!(solver.opt, kwargs)
     end
 
@@ -433,7 +485,7 @@ function solve!(
         MadNLP.@notice(solver.logger,"This is MadLP, running with $(MadNLP.introduce(solver.kkt.linear_solver))\n")
         MadNLP.print_init(solver)
         initialize!(solver)
-        solver.status = mpc!(solver)
+        solver.status = mpc!(solver; max_ncorr=max_ncorr)
     catch e
         if e isa MadNLP.InvalidNumberException
             if e.callback == :obj
