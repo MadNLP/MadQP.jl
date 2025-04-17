@@ -1,34 +1,17 @@
 
-function init_slacks!(solver::MadNLP.MadNLPSolver)
-    dlb = MadNLP.dual_lb(solver.d)
-    @inbounds @simd for i in eachindex(dlb)
-        solver.zl_r[i] = max(1.0, abs(solver.zl_r[i] + dlb[i]))
-    end
-
-    dub = MadNLP.dual_ub(solver.d)
-    @inbounds @simd for i in eachindex(dub)
-        solver.zu_r[i] = max(1.0, abs(solver.zu_r[i] + dub[i]))
-    end
-    return
-end
-
-function set_initial_bounds!(solver::MadNLP.MadNLPSolver{T}) where T
-    tol = solver.opt.tol
-    @inbounds @simd for i in eachindex(solver.xl_r)
-        solver.xl_r[i] -= max(one(T),abs(solver.xl_r[i])) * tol
-    end
-    @inbounds @simd for i in eachindex(solver.xu_r)
-        solver.xu_r[i] += max(one(T),abs(solver.xu_r[i])) * tol
-    end
-end
+#=
+    Initialization
+=#
 
 function set_initial_primal_rhs!(solver::MadNLP.MadNLPSolver)
     px = MadNLP.primal(solver.p)
-    fill!(px, 0.0)
     py = MadNLP.dual(solver.p)
-
-    # Constraint
     c = solver.c
+    f = MadNLP.full(solver.f)
+
+    @inbounds @simd for i in eachindex(px)
+        px[i] = -f[i]
+    end
     @inbounds @simd for i in eachindex(py)
         py[i] = -c[i]
     end
@@ -36,12 +19,64 @@ function set_initial_primal_rhs!(solver::MadNLP.MadNLPSolver)
 end
 
 function init_least_square_primals!(solver::MadNLP.MadNLPSolver)
+    lb, ub = solver.xl_r, solver.xu_r
+    zl, zu = solver.zl_r, solver.zu_r
+    xl, xu = solver.x_lr, solver.x_ur
+    res = solver.jacl #
+
     set_initial_primal_rhs!(solver)
-    MadNLP.initialize!(solver.kkt)
+
+    # TODO: check if the linear system is correct
+    solver.kkt.reg .= 1e-0
+    solver.kkt.pr_diag .= 1e-0
+    solver.kkt.du_diag .= -1.0e-8
     MadNLP.factorize_wrapper!(solver)
     is_solved = MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w4)
     @assert is_solved
     copyto!(MadNLP.primal(solver.x), MadNLP.primal(solver.d))
+    solver.y .= MadNLP.dual(solver.d)
+
+    zl .= solver.opt.bound_push
+    zu .= solver.opt.bound_push
+
+    delta_x = max(
+        0.0,
+        -1.5 * minimum(xl .- lb; init=0.0),
+        -1.5 * minimum(ub .- xu; init=0.0),
+    )
+
+    delta_s = max(
+        0.0,
+        -1.5 * minimum(zl; init=0.0),
+        -1.5 * minimum(zu; init=0.0),
+    )
+
+    xl .= xl .+ delta_x
+    xu .= xu .- delta_x
+    zl .+= delta_s
+    zu .+= delta_s
+
+    μ = dot(xl .- lb, zl) + dot(ub .- xu, zu)
+
+    delta_x2 = μ / (2 * (sum(zl) + sum(zu)))
+    delta_s2 = μ / (2 * (sum(xl .- lb) + sum(ub .- xu)))
+
+    xl .+= delta_x2
+    xu .-= delta_x2
+    zl .+= delta_s2
+    zu .+= delta_s2
+
+    MadNLP.initialize_variables!(
+        MadNLP.full(solver.x),
+        MadNLP.full(solver.xl),
+        MadNLP.full(solver.xu),
+        solver.opt.bound_push, solver.opt.bound_fac
+    )
+
+    @assert all(solver.zl_r .> 0.0)
+    @assert all(solver.zu_r .> 0.0)
+    @assert all(solver.x_lr .> solver.xl_r)
+    @assert all(solver.x_ur .< solver.xu_r)
     return
 end
 
@@ -61,13 +96,7 @@ function initialize!(solver::MadNLP.MadNLPSolver{T}) where T
         bound_fac=opt.bound_fac,
     )
 
-    MadNLP.eval_cons_wrapper!(solver, solver.c, solver.x)
-
     fill!(solver.jacl, zero(T))
-    fill!(solver.zl_r, opt.bound_push)
-    fill!(solver.zu_r, opt.bound_push)
-
-    # init_least_square_primals!(solver)
 
     MadNLP.initialize_variables!(
         MadNLP.full(solver.x),
@@ -77,6 +106,7 @@ function initialize!(solver::MadNLP.MadNLPSolver{T}) where T
     )
 
     # Initializing scaling factors
+    # TODO: Implement Ruiz equilibration scaling here
     if opt.nlp_scaling
         MadNLP.set_scaling!(
             solver.cb,
@@ -90,16 +120,18 @@ function initialize!(solver::MadNLP.MadNLPSolver{T}) where T
         )
     end
 
+    # Initializing KKT system
     MadNLP.initialize!(solver.kkt)
 
-    # Automatic scaling (constraints)
+    # Initializing callbacks
     MadNLP.eval_jac_wrapper!(solver, solver.kkt, solver.x)
     MadNLP.eval_grad_f_wrapper!(solver, solver.f, solver.x)
 
-    # Initializing
-    solver.obj_val = MadNLP.eval_f_wrapper(solver, solver.x)
     MadNLP.eval_cons_wrapper!(solver, solver.c, solver.x)
+    solver.obj_val = MadNLP.eval_f_wrapper(solver, solver.x)
     MadNLP.eval_lag_hess_wrapper!(solver, solver.kkt, solver.x, solver.y)
+
+    init_least_square_primals!(solver)
 
     theta = MadNLP.get_theta(solver.c)
     solver.theta_max = 1e4*max(1,theta)
@@ -109,6 +141,10 @@ function initialize!(solver::MadNLP.MadNLPSolver{T}) where T
 
     return MadNLP.REGULAR
 end
+
+#=
+    Kernels
+=#
 
 function get_complementarity_measure(solver::MadNLP.MadNLPSolver)
     m1, m2 = length(solver.x_lr), length(solver.x_ur)
@@ -288,6 +324,31 @@ function get_fraction_to_boundary_step(solver, tau)
     return (alpha_p, alpha_d)
 end
 
+function set_aug_diagonal_reg!(kkt::MadNLP.AbstractKKTSystem{T}, solver::MadNLP.MadNLPSolver{T}) where T
+    x = MadNLP.full(solver.x)
+    xl = MadNLP.full(solver.xl)
+    xu = MadNLP.full(solver.xu)
+    zl = MadNLP.full(solver.zl)
+    zu = MadNLP.full(solver.zu)
+
+    # TODO: implement primal-dual regularization here
+    fill!(kkt.reg, 0.0)
+    fill!(kkt.du_diag, 0)
+    kkt.l_diag .= solver.xl_r .- solver.x_lr   # (Xˡ - X)
+    kkt.u_diag .= solver.x_ur .- solver.xu_r   # (X - Xᵘ)
+    copyto!(kkt.l_lower, solver.zl_r)
+    copyto!(kkt.u_lower, solver.zu_r)
+
+    copyto!(kkt.pr_diag, kkt.reg)
+    kkt.pr_diag[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag
+    kkt.pr_diag[kkt.ind_ub] .-= kkt.u_lower ./ kkt.u_diag
+    return
+end
+
+#=
+    Algorithm
+=#
+
 function affine_step!(solver::MadNLP.AbstractMadNLPSolver)
     set_predictive_rhs!(solver, solver.kkt)
     is_solved = MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w4)
@@ -357,8 +418,8 @@ end
 function mpc!(solver::MadNLP.AbstractMadNLPSolver; max_ncorr=0)
     ind_cons = MadNLP.get_index_constraints(
         solver.nlp;
-        fixed_variable_treatment=MadNLP.MakeParameter,
-        equality_treatment=MadNLP.EnforceEquality,
+        fixed_variable_treatment=solver.opt.fixed_variable_treatment,
+        equality_treatment=solver.opt.equality_treatment,
     )
     nlb, nub = length(ind_cons.ind_lb), length(ind_cons.ind_ub)
     has_inequalities = (nlb + nub > 0)
@@ -399,7 +460,8 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver; max_ncorr=0)
         #####
         # Factorize
         #####
-        MadNLP.set_aug_diagonal!(solver.kkt, solver)
+        set_aug_diagonal_reg!(solver.kkt, solver)
+        # MadNLP.set_aug_diagonal!(solver.kkt, solver)
         MadNLP.factorize_wrapper!(solver)
 
         #####

@@ -4,12 +4,22 @@ authors = ["fpacaud <francoispacaud8@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+HSL_jll = "017b0a0e-03f4-516a-9b91-836bbd1904dd"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
+NLPModelsJuMP = "792afdf1-32c1-5681-94e0-d7bf7a5df49e"
+QPSReader = "10f199a5-22af-520b-b891-7ce84a7b1bd0"
+QuadraticModels = "f468eda6-eac5-11e8-05a5-ff9e497bcd19"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
+JuMP = "1.25.0"
+LDLFactorizations = "0.10.1"
 MadNLP = "0.8"
+MadNLPHSL = "0.6.0"
 MadNLPTests = "0.5"
 NLPModels = "0.21.3"
 

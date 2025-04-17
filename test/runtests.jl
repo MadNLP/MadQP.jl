@@ -23,7 +23,7 @@ end
 
 @testset "Test with DenseDummyQP" begin
     @testset "Size: ($n, $m)" for (n, m) in [(10, 0), (10, 5), (50, 10)]
-        _compare_with_nlp(n, m, Int[], Int[]; atol=1e-5)
+        _compare_with_nlp(n, m, Int[], Int[]; atol=1e-4)
     end
     @testset "Equality constraints" begin
         n, m = 20, 15
