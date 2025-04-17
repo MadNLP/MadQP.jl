@@ -1,6 +1,6 @@
 name = "MadQP"
 uuid = "4406d55e-1099-4ca6-ac6a-6cf051b10024"
-authors = ["fpacaud <francoispacaud8@gmail.com>"]
+authors = ["François Pacaud <francoispacaud8@gmail.com>"]
 version = "0.1.0"
 
 [deps]
@@ -9,6 +9,8 @@ JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
+MadNLPHSL = "7fb6135f-58fe-4112-84ca-653cf5be0c77"
+MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 NLPModelsJuMP = "792afdf1-32c1-5681-94e0-d7bf7a5df49e"
 QPSReader = "10f199a5-22af-520b-b891-7ce84a7b1bd0"
