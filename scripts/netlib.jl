@@ -1,14 +1,9 @@
-
 using MadNLP
 using MadQP
 using MadNLPHSL
 using QPSReader
 using QuadraticModels
 using NLPModels
-
-function NLPModels.cons!(qp::QuadraticModel{T}, x::Vector{T}, c::Vector{T}) where T
-    return NLPModels.cons_lin!(qp, x, c)
-end
 
 # Load Netlib
 src = fetch_netlib()
