@@ -5,8 +5,8 @@ using QPSReader
 using QuadraticModels
 using NLPModels
 
-# Load Netlib problems
-src = fetch_netlib()
+# Load Maros-Meszaros problems
+src = fetch_mm()
 sif_files = filter(x -> endswith(x, ".SIF"), readdir(src))
 
 # Number of SIF files

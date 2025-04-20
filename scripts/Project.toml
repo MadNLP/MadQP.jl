@@ -1,0 +1,7 @@
+[deps]
+MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
+MadNLPHSL = "7fb6135f-58fe-4112-84ca-653cf5be0c77"
+MadQP = "4406d55e-1099-4ca6-ac6a-6cf051b10024"
+NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
+QPSReader = "10f199a5-22af-520b-b891-7ce84a7b1bd0"
+QuadraticModels = "f468eda6-eac5-11e8-05a5-ff9e497bcd19"
