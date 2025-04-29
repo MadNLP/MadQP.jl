@@ -10,8 +10,8 @@ function _compare_with_nlp(n, m, ind_fixed, ind_eq; max_ncorr=0, atol=1e-5)
     nlp_solver = MadNLP.MadNLPSolver(qp; print_level=MadNLP.ERROR)
     nlp_stats = MadNLP.solve!(nlp_solver)
 
-    qp_solver = MadNLP.MadNLPSolver(qp; print_level=MadNLP.ERROR)
-    qp_stats = MadQP.solve!(qp_solver; max_ncorr=max_ncorr)
+    qp_solver = MadQP.MPCSolver(qp; print_level=MadNLP.ERROR, max_ncorr=max_ncorr)
+    qp_stats = MadQP.solve!(qp_solver)
 
     @test qp_stats.status == MadNLP.SOLVE_SUCCEEDED
     @test qp_stats.objective ≈ nlp_stats.objective atol=atol
