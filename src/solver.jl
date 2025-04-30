@@ -3,26 +3,49 @@
     Initialization
 =#
 
-function init_least_square_primals!(solver::MadNLP.AbstractMadNLPSolver)
+function init_starting_point!(solver::MadNLP.AbstractMadNLPSolver)
+    x = MadNLP.primal(solver.x)
+    l, u = solver.xl.values, solver.xu.values
     lb, ub = solver.xl_r, solver.xu_r
     zl, zu = solver.zl_r, solver.zu_r
     xl, xu = solver.x_lr, solver.x_ur
-    res = solver.jacl #
+    # use jacl as a buffer
+    res = solver.jacl
 
-    set_initial_primal_rhs!(solver)
+    # Add initial primal-dual regularization
+    # TODO
+    solver.kkt.pr_diag .= 1.0
 
-    # TODO: check if the linear system is correct
-    solver.kkt.reg .= 1e-0
-    solver.kkt.pr_diag .= 1e-0
-    solver.kkt.du_diag .= -1.0e-8
+    # Step 0: factorize initial KKT system
     MadNLP.factorize_wrapper!(solver)
-    is_solved = MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
-    @assert is_solved
-    copyto!(MadNLP.primal(solver.x), MadNLP.primal(solver.d))
+
+    # Step 1: Compute initial primal variable as x0 = x + dx, with dx the
+    #         least square solution of the system A * dx = (b - A*x)
+    set_initial_primal_rhs!(solver)
+    @assert MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
+    # x0 = x + dx
+    axpy!(1.0, MadNLP.primal(solver.d), x)
+
+    # Step 2: Compute initial dual variable as the least square solution of A' * y = -f
+    set_initial_dual_rhs!(solver)
+    @assert MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
     solver.y .= MadNLP.dual(solver.d)
 
-    zl .= solver.opt.bound_push
-    zu .= solver.opt.bound_push
+    # Step 3: init bounds multipliers using c + A' * y - zl + zu = 0
+    # A' * y
+    MadNLP.jtprod!(res, solver.kkt, solver.y)
+    # A'*y + c
+    axpy!(1.0, MadNLP.primal(solver.f), res)
+    for i in eachindex(x)
+        if isfinite(l[i]) && isfinite(u[i])
+            solver.zl.values[i] = 0.5 * res[i]
+            solver.zu.values[i] = -0.5 * res[i]
+        elseif isfinite(l[i])
+            solver.zl.values[i] = res[i]
+        elseif isfinite(u[i])
+            solver.zu.values[i] = -res[i]
+        end
+    end
 
     delta_x = max(
         0.0,
@@ -38,8 +61,8 @@ function init_least_square_primals!(solver::MadNLP.AbstractMadNLPSolver)
 
     xl .= xl .+ delta_x
     xu .= xu .- delta_x
-    zl .+= delta_s
-    zu .+= delta_s
+    zl .+= 1.0 + delta_s
+    zu .+= 1.0 + delta_s
 
     μ = dot(xl .- lb, zl) + dot(ub .- xu, zu)
 
@@ -51,12 +74,17 @@ function init_least_square_primals!(solver::MadNLP.AbstractMadNLPSolver)
     zl .+= delta_s2
     zu .+= delta_s2
 
-    MadNLP.initialize_variables!(
-        MadNLP.full(solver.x),
-        MadNLP.full(solver.xl),
-        MadNLP.full(solver.xu),
-        solver.opt.bound_push, solver.opt.bound_fac
-    )
+    # Use Ipopt's heuristic to project x back on the interval [l, u]
+    kappa = solver.opt.bound_fac
+    for i in eachindex(x)
+        if x[i] < l[i]
+            pl = min(kappa * max(1.0, l[i]), kappa * (u[i] - l[i]))
+            x[i] = l[i] + pl
+        elseif u[i] < x[i]
+            pu = min(kappa * max(1.0, u[i]), kappa * (u[i] - l[i]))
+            x[i] = u[i] - pu
+        end
+    end
 
     @assert all(solver.zl_r .> 0.0)
     @assert all(solver.zu_r .> 0.0)
@@ -67,7 +95,8 @@ end
 
 function initialize!(solver::MadNLP.AbstractMadNLPSolver{T}) where T
     opt = solver.opt
-    # Initialization
+
+    # Ensure the initial point is inside its bounds
     MadNLP.initialize!(
         solver.cb,
         solver.x,
@@ -76,19 +105,12 @@ function initialize!(solver::MadNLP.AbstractMadNLPSolver{T}) where T
         solver.y,
         solver.rhs,
         solver.ind_ineq;
-        tol=opt.tol,
+        tol=opt.bound_relax_factor,
         bound_push=opt.bound_push,
         bound_fac=opt.bound_fac,
     )
 
     fill!(solver.jacl, zero(T))
-
-    MadNLP.initialize_variables!(
-        MadNLP.full(solver.x),
-        MadNLP.full(solver.xl),
-        MadNLP.full(solver.xu),
-        opt.bound_push, opt.bound_fac
-    )
 
     # Initializing scaling factors
     # TODO: Implement Ruiz equilibration scaling here
@@ -109,17 +131,17 @@ function initialize!(solver::MadNLP.AbstractMadNLPSolver{T}) where T
     MadNLP.initialize!(solver.kkt)
 
     # Initializing callbacks
+    solver.obj_val = MadNLP.eval_f_wrapper(solver, solver.x)
     MadNLP.eval_jac_wrapper!(solver, solver.kkt, solver.x)
     MadNLP.eval_grad_f_wrapper!(solver, solver.f, solver.x)
-
     MadNLP.eval_cons_wrapper!(solver, solver.c, solver.x)
-    solver.obj_val = MadNLP.eval_f_wrapper(solver, solver.x)
     MadNLP.eval_lag_hess_wrapper!(solver, solver.kkt, solver.x, solver.y)
 
-    init_least_square_primals!(solver)
+    # Find initial position
+    init_starting_point!(solver)
 
     solver.mu = opt.mu_init
-    solver.tau = max(opt.tau_min,1-opt.mu_init)
+    solver.tau = max(opt.tau_min, 1 - opt.mu_init)
 
     return MadNLP.REGULAR
 end
@@ -196,7 +218,6 @@ end
 # Predictor-corrector method
 function mpc!(solver::MadNLP.AbstractMadNLPSolver)
     nlb, nub = length(solver.ind_lb), length(solver.ind_ub)
-    mu_curr = 1.0
 
     while true
         # A' y
@@ -244,6 +265,7 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         #####
         # Update barrier
         #####
+        mu_curr = update_barrier!(solver.opt.barrier_update, solver, mu_affine)
 
         #####
         # Mehrotra's Correction step
@@ -267,8 +289,6 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
             )
         end
 
-        mu_curr = update_barrier!(solver.opt.barrier_update, solver, mu_affine)
-
         #####
         # Next trial point
         #####
@@ -280,12 +300,13 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         solver.zl_r .+= solver.alpha_d .* MadNLP.dual_lb(solver.d)
         solver.zu_r .+= solver.alpha_d .* MadNLP.dual_ub(solver.d)
 
+        # Update callbacks
         solver.obj_val = MadNLP.eval_f_wrapper(solver, solver.x)
         MadNLP.eval_cons_wrapper!(solver, solver.c, solver.x)
         MadNLP.eval_grad_f_wrapper!(solver, solver.f, solver.x)
 
+        MadNLP.adjust_boundary!(solver.x_lr,solver.xl_r,solver.x_ur,solver.xu_r,solver.mu)
         solver.cnt.k+=1
-        solver.cnt.l=1
     end
 end
 
