@@ -135,7 +135,7 @@ function affine_step!(solver::MadNLP.AbstractMadNLPSolver)
 end
 
 function mehrotra_correction_step!(solver, correction_lb, correction_ub)
-    set_corrective_rhs!(solver, solver.kkt, solver.mu, correction_lb, correction_ub, solver.ind_lb, solver.ind_ub)
+    set_correction_rhs!(solver, solver.kkt, solver.mu, correction_lb, correction_ub, solver.ind_lb, solver.ind_ub)
     is_solved = MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
     solver.tau = max(1-solver.mu, solver.opt.tau_min)
     return get_fraction_to_boundary_step(solver, solver.tau)
@@ -166,7 +166,7 @@ function gondzio_correction_step!(solver, correction_lb, correction_ub, mu_curr,
             tilde_alpha_p, tilde_alpha_d, βmin, βmax, mu,
         )
         # Update RHS.
-        set_corrective_rhs!(
+        set_correction_rhs!(
             solver,
             solver.kkt,
             mu,

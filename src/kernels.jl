@@ -37,7 +37,7 @@ function set_predictive_rhs!(solver::MadNLP.AbstractMadNLPSolver, kkt::MadNLP.Ab
     return
 end
 
-function set_corrective_rhs!(solver::MadNLP.AbstractMadNLPSolver, kkt::MadNLP.AbstractKKTSystem, mu::Float64, correction_lb::Vector{Float64}, correction_ub::Vector{Float64}, ind_lb, ind_ub)
+function set_correction_rhs!(solver::MadNLP.AbstractMadNLPSolver, kkt::MadNLP.AbstractKKTSystem, mu::Float64, correction_lb::Vector{Float64}, correction_ub::Vector{Float64}, ind_lb, ind_ub)
     px = MadNLP.primal(solver.p)
     py = MadNLP.dual(solver.p)
     pzl = MadNLP.dual_lb(solver.p)
