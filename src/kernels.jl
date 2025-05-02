@@ -1,16 +1,25 @@
 
 
 function set_initial_primal_rhs!(solver::MadNLP.AbstractMadNLPSolver)
-    px = MadNLP.primal(solver.p)
-    py = MadNLP.dual(solver.p)
-    c = solver.c
-    f = MadNLP.full(solver.f)
+    p = solver.p
+    fill!(full(p), 0.0)
+    py = MadNLP.dual(p)
+    b = solver.c
 
-    @inbounds @simd for i in eachindex(px)
-        px[i] = -f[i]
+    @inbounds for i in eachindex(py)
+        py[i] = -b[i]
     end
-    @inbounds @simd for i in eachindex(py)
-        py[i] = -c[i]
+    return
+end
+
+function set_initial_dual_rhs!(solver::MadNLP.AbstractMadNLPSolver)
+    p = solver.p
+    fill!(full(p), 0.0)
+    px = MadNLP.primal(p)
+    c = MadNLP.primal(solver.f)
+
+    @inbounds for i in eachindex(px)
+        px[i] = -c[i]
     end
     return
 end
@@ -133,6 +142,7 @@ function set_aug_diagonal_reg!(kkt::MadNLP.AbstractKKTSystem{T}, solver::MadNLP.
     copyto!(kkt.pr_diag, kkt.reg)
     kkt.pr_diag[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag
     kkt.pr_diag[kkt.ind_ub] .-= kkt.u_lower ./ kkt.u_diag
+
     return
 end
 
