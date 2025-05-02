@@ -13,8 +13,9 @@ function init_starting_point!(solver::MadNLP.AbstractMadNLPSolver)
     res = solver.jacl
 
     # Add initial primal-dual regularization
-    # TODO
+    solver.kkt.reg .= 1e-8
     solver.kkt.pr_diag .= 1.0
+    solver.kkt.du_diag .= 1e-8
 
     # Step 0: factorize initial KKT system
     MadNLP.factorize_wrapper!(solver)
