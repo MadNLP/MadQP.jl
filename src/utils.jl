@@ -8,8 +8,18 @@ abstract type AbstractBarrierUpdate end
 struct Mehrotra <: AbstractBarrierUpdate end
 
 abstract type AbstractStepRule end
-struct PrimalDualStep <: AbstractStepRule end
-struct ConservativeStep <: AbstractStepRule end
+
+@kwdef struct ConservativeStep{T} <: AbstractStepRule
+    tau::T = T(0.995)
+end
+
+@kwdef struct AdaptiveStep{T} <: AbstractStepRule
+    tau_min::T = T(0.99)
+end
+
+@kwdef struct MehrotraAdaptiveStep{T} <: AbstractStepRule
+    gamma_f::T = T(0.99)
+end
 
 
 @kwdef mutable struct IPMOptions <: MadNLP.AbstractOptions
@@ -21,6 +31,7 @@ struct ConservativeStep <: AbstractStepRule end
     output_file::String = ""
     print_level::MadNLP.LogLevels = MadNLP.INFO
     file_print_level::MadNLP.LogLevels = MadNLP.INFO
+    rethrow_error::Bool = false
     # Termination options
     max_iter::Int = 3000
     kappa_d::Float64 = 1e-5
@@ -32,7 +43,7 @@ struct ConservativeStep <: AbstractStepRule end
     bound_fac::Float64 = 1e-2
     bound_relax_factor::Float64 = 1e-8
     # Step
-    step_rule::AbstractStepRule = PrimalDualStep()
+    step_rule::AbstractStepRule = AdaptiveStep(0.99)
     # Barrier
     barrier_update::AbstractBarrierUpdate = Mehrotra()
     max_ncorr::Int = 0

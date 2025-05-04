@@ -37,5 +37,22 @@ end
         _compare_with_nlp(n, m, Int[1, 2], Int[]; atol=1e-5)
         _compare_with_nlp(n, m, Int[1, 2], Int[1, 2, 3, 8]; atol=1e-5)
     end
+
+    n, m = 10, 5
+    x0 = zeros(n)
+    qp = MadNLPTests.DenseDummyQP(x0; m=m)
+    @testset "Step rule $rule" for rule in [
+        MadQP.AdaptiveStep(0.99),
+        MadQP.ConservativeStep(0.99),
+        MadQP.MehrotraAdaptiveStep(0.99),
+    ]
+        qp_solver = MadQP.MPCSolver(
+            qp;
+            print_level=MadNLP.ERROR,
+            step_rule=rule,
+        )
+        qp_stats = MadQP.solve!(qp_solver)
+        @test qp_stats.status == MadNLP.SOLVE_SUCCEEDED
+    end
 end
 
