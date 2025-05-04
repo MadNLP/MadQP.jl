@@ -13,9 +13,9 @@ function init_starting_point!(solver::MadNLP.AbstractMadNLPSolver)
     res = solver.jacl
 
     # Add initial primal-dual regularization
-    solver.kkt.reg .= 1e-8
+    # solver.kkt.reg .= 1e-3
     solver.kkt.pr_diag .= 1.0
-    solver.kkt.du_diag .= 1e-8
+    # solver.kkt.du_diag .= -1e-10
 
     # Step 0: factorize initial KKT system
     MadNLP.factorize_wrapper!(solver)
@@ -151,20 +151,19 @@ end
     MPC Algorithm
 =#
 
-function affine_step!(solver::MadNLP.AbstractMadNLPSolver)
+function affine_direction!(solver::MadNLP.AbstractMadNLPSolver)
     set_predictive_rhs!(solver, solver.kkt)
-    is_solved = MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
-    return get_fraction_to_boundary_step(solver, 1.0)
+    @assert MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
+    return
 end
 
-function mehrotra_correction_step!(solver, correction_lb, correction_ub)
+function mehrotra_correction_direction!(solver, correction_lb, correction_ub)
     set_correction_rhs!(solver, solver.kkt, solver.mu, correction_lb, correction_ub, solver.ind_lb, solver.ind_ub)
-    is_solved = MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
-    solver.tau = max(1-solver.mu, solver.opt.tau_min)
-    return get_fraction_to_boundary_step(solver, solver.tau)
+    @assert MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
+    return
 end
 
-function gondzio_correction_step!(solver, correction_lb, correction_ub, mu_curr, max_ncorr)
+function gondzio_correction_direction!(solver, correction_lb, correction_ub, mu_curr, max_ncorr)
     δ = 0.1
     γ = 0.1
     βmin = 0.1
@@ -200,7 +199,7 @@ function gondzio_correction_step!(solver, correction_lb, correction_ub, mu_curr,
         )
         # Solve KKT linear system.
         copyto!(Δp, solver.d.values)
-        MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
+        @assert MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
         hat_alpha_p, hat_alpha_d = get_fraction_to_boundary_step(solver, solver.tau)
 
         # Stop extra correction if the stepsize does not increase sufficiently
@@ -258,9 +257,9 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         #####
         # Prediction step
         #####
-        alpha_p, alpha_d = affine_step!(solver)
-        update_step!(solver.opt.step_rule, solver, alpha_p, alpha_d)
-        mu_affine = get_affine_complementarity_measure(solver, solver.alpha_p, solver.alpha_d)
+        affine_direction!(solver)
+        alpha_aff_p, alpha_aff_d = get_fraction_to_boundary_step(solver, 1.0)
+        mu_affine = get_affine_complementarity_measure(solver, alpha_aff_p, alpha_aff_d)
         get_correction!(solver, solver.correction_lb, solver.correction_ub)
 
         #####
@@ -271,7 +270,7 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         #####
         # Mehrotra's Correction step
         #####
-        alpha_p, alpha_d = mehrotra_correction_step!(
+        mehrotra_correction_direction!(
             solver,
             solver.correction_lb,
             solver.correction_ub,
@@ -281,7 +280,7 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         # Gondzio's additional correction
         #####
         if solver.opt.max_ncorr > 0
-            alpha_p, alpha_d = gondzio_correction_step!(
+            alpha_p, alpha_d = gondzio_correction_direction!(
                 solver,
                 solver.correction_lb,
                 solver.correction_ub,
@@ -293,7 +292,7 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         #####
         # Next trial point
         #####
-        update_step!(solver.opt.step_rule, solver, alpha_p, alpha_d)
+        update_step!(solver.opt.step_rule, solver)
 
         # Update primal-dual solution
         axpy!(solver.alpha_p, MadNLP.primal(solver.d), MadNLP.primal(solver.x))
@@ -307,7 +306,7 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         MadNLP.eval_grad_f_wrapper!(solver, solver.f, solver.x)
 
         MadNLP.adjust_boundary!(solver.x_lr,solver.xl_r,solver.x_ur,solver.xu_r,solver.mu)
-        solver.cnt.k+=1
+        solver.cnt.k += 1
     end
 end
 

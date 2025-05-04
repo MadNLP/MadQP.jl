@@ -207,54 +207,122 @@ end
     Step
 =#
 
-function get_alpha_max_primal(x, xl, xu, dx, tau)
-    alpha_max = 1.0
-    @inbounds @simd for i=1:length(x)
-        dx[i]<0 && (alpha_max=min(alpha_max,(-x[i]+xl[i])*tau/dx[i]))
-        dx[i]>0 && (alpha_max=min(alpha_max,(-x[i]+xu[i])*tau/dx[i]))
+function get_alpha_max_primal(xl, lx, xu, ux, dxl, dxu, tau)
+    alpha_xl, alpha_xu = 1.0, 1.0
+    iblock_l, iblock_u = 0, 0
+    @inbounds for i in eachindex(xl)
+        if dxl[i] < 0 && (xl[i] + alpha_xl * dxl[i] < lx[i])
+            alpha_xl =(-xl[i]+lx[i])*tau/dxl[i]
+            iblock_l = i
+        end
     end
-    return alpha_max
+    @inbounds for i in eachindex(xu)
+        if dxu[i] > 0 && (xu[i] + alpha_xu * dxu[i] > ux[i])
+            alpha_xu =(-xu[i]+ux[i])*tau/dxu[i]
+            iblock_u = i
+        end
+    end
+    return alpha_xl, alpha_xu, iblock_l, iblock_u
 end
 
 function get_alpha_max_dual(zl_r, zu_r, dzl, dzu, tau)
-    alpha_z = 1.0
-    @inbounds @simd for i=1:length(zl_r)
-        dzl[i] < 0 && (alpha_z=min(alpha_z,-zl_r[i]*tau/dzl[i]))
-     end
-    @inbounds @simd for i=1:length(zu_r)
-        dzu[i] < 0 && (alpha_z=min(alpha_z,-zu_r[i]*tau/dzu[i]))
+    alpha_zl, alpha_zu = 1.0, 1.0
+    iblock_l, iblock_u = 0, 0
+    @inbounds for i=1:length(zl_r)
+        if dzl[i] < 0 && (zl_r[i] + alpha_zl * dzl[i] < 0.0)
+            alpha_zl = -zl_r[i]*tau/dzl[i]
+            iblock_l = i
+        end
     end
-    return alpha_z
+    @inbounds for i=1:length(zu_r)
+        if dzu[i] < 0 && (zu_r[i] + alpha_zu * dzu[i] < 0.0)
+            alpha_zu = -zu_r[i]*tau/dzu[i]
+            iblock_u = i
+        end
+    end
+    return alpha_zl, alpha_zu, iblock_l, iblock_u
 end
 
 function get_fraction_to_boundary_step(solver, tau)
-    alpha_p = get_alpha_max_primal(
-        MadNLP.primal(solver.x),
-        MadNLP.primal(solver.xl),
-        MadNLP.primal(solver.xu),
-        MadNLP.primal(solver.d),
+    alpha_xl, alpha_xu, _ = get_alpha_max_primal(
+        solver.x_lr, solver.xl_r,
+        solver.x_ur, solver.xu_r,
+        solver.dx_lr, solver.dx_ur,
         tau,
     )
-    alpha_d = get_alpha_max_dual(
+    alpha_zl, alpha_zu, _ = get_alpha_max_dual(
         solver.zl_r,
         solver.zu_r,
         MadNLP.dual_lb(solver.d),
         MadNLP.dual_ub(solver.d),
         tau,
     )
-    return (alpha_p, alpha_d)
+    return min(alpha_xl, alpha_xu), min(alpha_zl, alpha_zu)
 end
 
-function update_step!(rule::PrimalDualStep, solver, alpha_p, alpha_d)
+function update_step!(rule::ConservativeStep, solver)
+    alpha_p, alpha_d = get_fraction_to_boundary_step(solver, rule.tau)
     solver.alpha_p = alpha_p
     solver.alpha_d = alpha_d
     return
 end
 
 # Implement conservative rule for QP
-function update_step!(rule::ConservativeStep, solver, alpha_p, alpha_d)
-    solver.alpha_p = min(alpha_p, alpha_d)
-    solver.alpha_d = solver.alpha_p
+function update_step!(rule::AdaptiveStep, solver)
+    tau = max(1-solver.mu, rule.tau_min)
+    alpha_p, alpha_d = get_fraction_to_boundary_step(solver, tau)
+    solver.alpha_p = alpha_p
+    solver.alpha_d = alpha_d
+    return
+end
+
+# Implement Mehrotra's heuristic to compute the step : see Procedure GTSF (Exhibit 6.1) in
+# "On The Implementation Of A Primal-Dual Interior Point Method"
+function update_step!(rule::MehrotraAdaptiveStep, solver)
+    gamma_a = 1.0 / (1.0 - rule.gamma_f)
+    tau = 1.0
+
+    d_zl = MadNLP.dual_lb(solver.d)
+    d_zu = MadNLP.dual_ub(solver.d)
+
+    alpha_xl, alpha_xu, i_xl, i_xu = get_alpha_max_primal(
+        solver.x_lr, solver.xl_r,
+        solver.x_ur, solver.xu_r,
+        solver.dx_lr, solver.dx_ur, tau,
+    )
+    alpha_zl, alpha_zu, i_zl, i_zu = get_alpha_max_dual(
+        solver.zl_r, solver.zu_r, d_zl, d_zu, tau,
+    )
+
+    max_alpha_p = min(alpha_xl, alpha_xu)
+    max_alpha_d = min(alpha_zl, alpha_zu)
+
+    mu_full = get_affine_complementarity_measure(solver, max_alpha_p, max_alpha_d)
+    mu_full /= gamma_a
+
+    alpha_p, alpha_d = 1.0, 1.0
+
+    if max_alpha_p < 1.0
+        if alpha_xl <= alpha_xu
+            tmp = mu_full / (solver.zl_r[i_xl] + max_alpha_d * d_zl[i_xl])
+            alpha_p = (solver.x_lr[i_xl] - solver.xl_r[i_xl] - tmp) / (-solver.dx_lr[i_xl])
+        else
+            tmp = mu_full / (solver.zu_r[i_xu] + max_alpha_d * d_zu[i_xu])
+            alpha_p = (solver.xu_r[i_xu] - solver.x_ur[i_xu] - tmp) / (solver.dx_ur[i_xu])
+        end
+    end
+    if max_alpha_d < 1.0
+        if alpha_zl <= alpha_zu
+            tmp = mu_full / (solver.x_lr[i_zl] + max_alpha_p * solver.dx_lr[i_zl] - solver.xl_r[i_zl])
+            alpha_d = -(solver.zl_r[i_zl] - tmp) / d_zl[i_zl]
+        else
+            tmp = mu_full / (solver.xu_r[i_zu] - solver.x_ur[i_zu] - max_alpha_p * solver.dx_ur[i_zu])
+            alpha_d = -(solver.zu_r[i_zu] - tmp) / d_zu[i_zu]
+        end
+    end
+
+    solver.alpha_p = max(alpha_p, rule.gamma_f * max_alpha_p)
+    solver.alpha_d = max(alpha_d, rule.gamma_f * max_alpha_d)
     return
 end
 
