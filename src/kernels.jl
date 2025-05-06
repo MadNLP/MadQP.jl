@@ -146,6 +146,26 @@ function set_aug_diagonal_reg!(kkt::MadNLP.AbstractKKTSystem{T}, solver::MadNLP.
     return
 end
 
+# Special function for ScaledSparseKKTSystem to ensure coefficients are positive
+function set_aug_diagonal_reg!(kkt::MadNLP.ScaledSparseKKTSystem{T}, solver::MadNLP.AbstractMadNLPSolver{T}) where T
+    x = MadNLP.full(solver.x)
+    xl = MadNLP.full(solver.xl)
+    xu = MadNLP.full(solver.xu)
+    zl = MadNLP.full(solver.zl)
+    zu = MadNLP.full(solver.zu)
+
+    fill!(kkt.reg, solver.del_w)
+    fill!(kkt.du_diag, solver.del_c)
+    kkt.l_diag .= solver.x_lr .- solver.xl_r   # (X - Xˡ)
+    kkt.u_diag .= solver.xu_r .- solver.x_ur   # (Xᵘ - X)
+    copyto!(kkt.l_lower, solver.zl_r)
+    copyto!(kkt.u_lower, solver.zu_r)
+
+    MadNLP._set_aug_diagonal!(kkt)
+
+    return
+end
+
 #=
     Barrier
 =#
