@@ -54,5 +54,27 @@ end
         qp_stats = MadQP.solve!(qp_solver)
         @test qp_stats.status == MadNLP.SOLVE_SUCCEEDED
     end
+
+    @testset "K2.5 KKT linear system" begin
+        qp_solver = MadQP.MPCSolver(
+            qp;
+            print_level=MadNLP.ERROR,
+        )
+        sol_ref = MadQP.solve!(qp_solver)
+
+        qp_k25 = MadQP.MPCSolver(
+            qp;
+            print_level=MadNLP.ERROR,
+            kkt_system=MadNLP.ScaledSparseKKTSystem,
+        )
+        sol_k25 = MadQP.solve!(qp_k25)
+        @test sol_k25.status == MadNLP.SOLVE_SUCCEEDED
+        @test sol_k25.iter ≈ sol_ref.iter atol=1e-6
+        @test sol_k25.objective ≈ sol_ref.objective atol=1e-6
+        @test sol_k25.objective ≈ sol_ref.objective atol=1e-6
+        @test sol_k25.solution ≈ sol_ref.solution atol=1e-6
+        @test sol_k25.constraints ≈ sol_ref.constraints atol=1e-6
+        @test sol_k25.multipliers ≈ sol_ref.multipliers atol=1e-6
+    end
 end
 
