@@ -3,7 +3,7 @@ module MadQP
 using Printf
 using LinearAlgebra
 import MadNLP
-import MadNLP: full
+import MadNLP: full, LDLFactorizations
 import NLPModels
 
 include("utils.jl")
