@@ -1,14 +1,10 @@
-
-
 function set_initial_primal_rhs!(solver::MadNLP.AbstractMadNLPSolver)
     p = solver.p
     fill!(full(p), 0.0)
     py = MadNLP.dual(p)
     b = solver.c
 
-    @inbounds for i in eachindex(py)
-        py[i] = -b[i]
-    end
+    py .= .- b
     return
 end
 
@@ -18,9 +14,7 @@ function set_initial_dual_rhs!(solver::MadNLP.AbstractMadNLPSolver)
     px = MadNLP.primal(p)
     c = MadNLP.primal(solver.f)
 
-    @inbounds for i in eachindex(px)
-        px[i] = -c[i]
-    end
+    px .= .- c
     return
 end
 
@@ -59,8 +53,8 @@ function set_correction_rhs!(solver::MadNLP.AbstractMadNLPSolver, kkt::MadNLP.Ab
     zl = MadNLP.full(solver.zl)
     zu = MadNLP.full(solver.zu)
 
-    px .= .-f .+ zl .- zu .- solver.jacl
-    py .= .-solver.c
+    px .= .- f .+ zl .- zu .- solver.jacl
+    py .= .- solver.c
     pzl .= (solver.xl_r .- solver.x_lr) .* solver.zl_r .+ mu .- correction_lb
     pzu .= (solver.xu_r .- solver.x_ur) .* solver.zu_r .- mu .- correction_ub
     return
@@ -75,12 +69,8 @@ function get_correction!(
     dlb = MadNLP.dual_lb(solver.d)
     dub = MadNLP.dual_ub(solver.d)
 
-    for i in eachindex(dlb)
-        correction_lb[i] = solver.dx_lr[i] * dlb[i]
-    end
-    for i in eachindex(dub)
-        correction_ub[i] = solver.dx_ur[i] * dub[i]
-    end
+    correction_lb .= solver.dx_lr .* dlb
+    correction_ub .= solver.dx_ur .* dub
     return
 end
 
@@ -123,7 +113,6 @@ function set_extra_correction!(
     return
 end
 
-
 function set_aug_diagonal_reg!(kkt::MadNLP.AbstractKKTSystem{T}, solver::MadNLP.AbstractMadNLPSolver{T}) where T
     x = MadNLP.full(solver.x)
     xl = MadNLP.full(solver.xl)
@@ -141,7 +130,6 @@ function set_aug_diagonal_reg!(kkt::MadNLP.AbstractKKTSystem{T}, solver::MadNLP.
     copyto!(kkt.pr_diag, kkt.reg)
     kkt.pr_diag[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag
     kkt.pr_diag[kkt.ind_ub] .-= kkt.u_lower ./ kkt.u_diag
-
     return
 end
 
@@ -161,7 +149,6 @@ function set_aug_diagonal_reg!(kkt::MadNLP.ScaledSparseKKTSystem{T}, solver::Mad
     copyto!(kkt.u_lower, solver.zu_r)
 
     MadNLP._set_aug_diagonal!(kkt)
-
     return
 end
 
@@ -415,4 +402,3 @@ function get_optimality_gap(solver::MPCSolver, ::QuadraticProgram)
         1.0,
     )
 end
-
