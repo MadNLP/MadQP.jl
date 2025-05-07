@@ -131,7 +131,6 @@ function set_aug_diagonal_reg!(kkt::MadNLP.AbstractKKTSystem{T}, solver::MadNLP.
     zl = MadNLP.full(solver.zl)
     zu = MadNLP.full(solver.zu)
 
-    # TODO: implement primal-dual regularization here
     fill!(kkt.reg, solver.del_w)
     fill!(kkt.du_diag, solver.del_c)
     kkt.l_diag .= solver.xl_r .- solver.x_lr   # (Xˡ - X)
@@ -344,5 +343,76 @@ function update_step!(rule::MehrotraAdaptiveStep, solver)
     solver.alpha_p = max(alpha_p, rule.gamma_f * max_alpha_p)
     solver.alpha_d = max(alpha_d, rule.gamma_f * max_alpha_d)
     return
+end
+
+#=
+    Regularization
+=#
+
+function init_regularization!(solver::MPCSolver, ::NoRegularization)
+    solver.del_w = 1.0
+    solver.del_c = 0.0
+    return
+end
+
+function update_regularization!(solver::MPCSolver, ::NoRegularization)
+    solver.del_w = 0.0
+    solver.del_c = 0.0
+    return
+end
+
+function init_regularization!(solver::MPCSolver, reg::FixedRegularization)
+    solver.del_w = 1.0
+    solver.del_c = reg.delta_d
+    return
+end
+
+function update_regularization!(solver::MPCSolver, reg::FixedRegularization)
+    solver.del_w = reg.delta_p
+    solver.del_c = reg.delta_d
+    return
+end
+
+function init_regularization!(solver::MPCSolver, reg::AdaptiveRegularization)
+    solver.del_w = 1.0
+    solver.del_c = reg.delta_d
+    return
+end
+
+function update_regularization!(solver::MPCSolver, reg::AdaptiveRegularization)
+    reg.delta_p = max(reg.delta_p / 10.0, reg.delta_min)
+    # Dual regularization is negative!
+    reg.delta_d = min(reg.delta_d / 10.0, -reg.delta_min)
+    solver.del_w = reg.delta_p
+    solver.del_c = reg.delta_d
+    return
+end
+
+#=
+    Stopping criterion
+=#
+
+# Dual objective
+function dual_objective(solver::MPCSolver)
+    return -dot(solver.y, solver.rhs) + dot(solver.zl_r, solver.xl_r) - dot(solver.zu_r, solver.xu_r)
+end
+
+function get_optimality_gap(solver::MPCSolver, ::LinearProgram)
+    primal_obj = solver.obj_val
+    dual_obj = dual_objective(solver)
+    return (primal_obj - dual_obj) / max(1.0, abs(dual_obj))
+end
+
+function get_optimality_gap(solver::MPCSolver, ::QuadraticProgram)
+    return MadNLP.get_inf_compl(
+        solver.x_lr,
+        solver.xl_r,
+        solver.zl_r,
+        solver.xu_r,
+        solver.x_ur,
+        solver.zu_r,
+        0.,
+        1.0,
+    )
 end
 

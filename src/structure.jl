@@ -67,13 +67,13 @@ mutable struct MPCSolver{
     inf_pr::T
     inf_du::T
     inf_compl::T
+    norm_b::T
+    norm_c::T
 
     mu::T
-    tau::T
 
     alpha_p::T
     alpha_d::T
-    ftype::String
     del_w::T
     del_c::T
     status::MadNLP.Status
@@ -155,8 +155,8 @@ function MPCSolver(nlp::NLPModels.AbstractNLPModel{T,VT}; kwargs...) where {T, V
     xu_r = view(full(xu), ind_cons.ind_ub)
     zl_r = view(full(zl), ind_cons.ind_lb)
     zu_r = view(full(zu), ind_cons.ind_ub)
-    dx_lr = view(d.xp, ind_cons.ind_lb) # TODO
-    dx_ur = view(d.xp, ind_cons.ind_ub) # TODO
+    dx_lr = view(d.xp, ind_cons.ind_lb)
+    dx_ur = view(d.xp, ind_cons.ind_ub)
 
     cnt.init_time = time() - cnt.start_time
 
@@ -179,7 +179,7 @@ function MPCSolver(nlp::NLPModels.AbstractNLPModel{T,VT}; kwargs...) where {T, V
         ind_cons.ind_lb, ind_cons.ind_ub,
         x_lr, x_ur, xl_r, xu_r, zl_r, zu_r, dx_lr, dx_ur,
         iterator,
-        zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), " ", zero(T), zero(T),
+        zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T),
         MadNLP.INITIAL,
     )
 end
@@ -192,14 +192,14 @@ function MadNLP.print_iter(solver::MPCSolver; options...)
     inf_pr = solver.inf_pr
     mu = log10(solver.mu)
     MadNLP.@info(solver.logger,Printf.@sprintf(
-        "%4i%s% 10.7e %6.2e %6.2e %5.1f %6.2e %s %6.2e %6.2e%s",
+        "%4i%s% 10.7e %6.2e %6.2e %5.1f %6.2e %s %6.2e %6.2e",
         solver.cnt.k,
         " ",
         solver.obj_val/obj_scale,
         inf_pr, inf_du, mu,
         solver.cnt.k == 0 ? 0. : norm(MadNLP.primal(solver.d),Inf),
         solver.del_w == 0 ? "   - " : @sprintf("%5.1f",log(10,solver.del_w)),
-        solver.alpha_d,solver.alpha_p,solver.ftype))
+        solver.alpha_d,solver.alpha_p))
     return
 end
 
