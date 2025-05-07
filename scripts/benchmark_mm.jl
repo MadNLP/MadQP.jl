@@ -45,7 +45,7 @@ function run_benchmark(src, probs)
     return results
 end
 
-src = fetch_netlib()
+src = fetch_mm()
 sif_files = filter(x -> endswith(x, ".SIF"), readdir(src))
 results = run_benchmark(src, sif_files)
-writedlm("benchmark-netlib.txt", [sif_files results])
+writedlm("benchmark-mm.txt", [sif_files results])
