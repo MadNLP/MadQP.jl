@@ -4,8 +4,16 @@ abstract type AbstractConicProblem end
 struct LinearProgram <: AbstractConicProblem end
 struct QuadraticProgram <: AbstractConicProblem end
 
+#=
+    Barrier update
+=#
+
 abstract type AbstractBarrierUpdate end
 struct Mehrotra <: AbstractBarrierUpdate end
+
+#=
+    Step rule for next iterate
+=#
 
 abstract type AbstractStepRule end
 
@@ -21,6 +29,43 @@ end
     gamma_f::T = T(0.99)
 end
 
+#=
+    Primal-dual regularization for KKT system
+=#
+
+abstract type AbstractRegularization end
+
+struct NoRegularization <: AbstractRegularization end
+
+mutable struct FixedRegularization{T} <: AbstractRegularization
+    delta_p::T
+    delta_d::T
+end
+
+mutable struct AdaptiveRegularization{T} <: AbstractRegularization
+    delta_p::T
+    delta_d::T
+    delta_min::T
+end
+
+#=
+    Utils for linear solvers
+=#
+
+function is_factorized(::MadNLP.AbstractLinearSolver)
+    return true # assume the system is factorized by default
+end
+function is_factorized(lin_solver::MadNLP.LDLSolver)
+    return LDLFactorizations.factorized(lin_solver.inner)
+end
+function is_factorized(lin_solver::MadNLP.CHOLMODSolver)
+    return issuccess(lin_solver.inner)
+end
+
+
+#=
+    Options
+=#
 
 @kwdef mutable struct IPMOptions <: MadNLP.AbstractOptions
     tol::Float64
@@ -42,6 +87,8 @@ end
     bound_push::Float64 = 1e-2
     bound_fac::Float64 = 1e-2
     bound_relax_factor::Float64 = 1e-8
+    # Regularization
+    regularization::AbstractRegularization = FixedRegularization(1e-8, 0.0)
     # Step
     step_rule::AbstractStepRule = AdaptiveStep(0.99)
     # Barrier

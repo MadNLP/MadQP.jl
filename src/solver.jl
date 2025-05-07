@@ -13,9 +13,9 @@ function init_starting_point!(solver::MadNLP.AbstractMadNLPSolver)
     res = solver.jacl
 
     # Add initial primal-dual regularization
-    # solver.kkt.reg .= 1e-3
-    solver.kkt.pr_diag .= 1.0
-    # solver.kkt.du_diag .= -1e-10
+    solver.kkt.reg .= solver.del_w
+    solver.kkt.pr_diag .= solver.del_w
+    solver.kkt.du_diag .= solver.del_c
 
     # Step 0: factorize initial KKT system
     MadNLP.factorize_wrapper!(solver)
@@ -130,6 +130,7 @@ function initialize!(solver::MadNLP.AbstractMadNLPSolver{T}) where T
 
     # Initializing KKT system
     MadNLP.initialize!(solver.kkt)
+    init_regularization!(solver, solver.opt.regularization)
 
     # Initializing callbacks
     solver.obj_val = MadNLP.eval_f_wrapper(solver, solver.x)
@@ -138,11 +139,14 @@ function initialize!(solver::MadNLP.AbstractMadNLPSolver{T}) where T
     MadNLP.eval_cons_wrapper!(solver, solver.c, solver.x)
     MadNLP.eval_lag_hess_wrapper!(solver, solver.kkt, solver.x, solver.y)
 
+    # Normalization factors
+    solver.norm_b = norm(solver.rhs, Inf)
+    solver.norm_c = norm(MadNLP.primal(solver.f), Inf)
+
     # Find initial position
     init_starting_point!(solver)
 
     solver.mu = opt.mu_init
-    solver.tau = max(opt.tau_min, 1 - opt.mu_init)
 
     return MadNLP.REGULAR
 end
@@ -168,11 +172,12 @@ function gondzio_correction_direction!(solver, correction_lb, correction_ub, mu_
     γ = 0.1
     βmin = 0.1
     βmax = 10.0
+    tau = 0.995
     # Load buffer for descent direction.
     Δp = solver._w2.values
 
     # TODO: this may be redundant with (alpha_p, alpha_d) computed in Mehrotra correction step.
-    alpha_p, alpha_d = get_fraction_to_boundary_step(solver, solver.tau)
+    alpha_p, alpha_d = get_fraction_to_boundary_step(solver, tau)
 
     for ncorr in 1:max_ncorr
         # Enlarge step sizes in primal and dual spaces.
@@ -200,7 +205,7 @@ function gondzio_correction_direction!(solver, correction_lb, correction_ub, mu_
         # Solve KKT linear system.
         copyto!(Δp, solver.d.values)
         @assert MadNLP.solve_refine_wrapper!(solver.d, solver, solver.p, solver._w1)
-        hat_alpha_p, hat_alpha_d = get_fraction_to_boundary_step(solver, solver.tau)
+        hat_alpha_p, hat_alpha_d = get_fraction_to_boundary_step(solver, tau)
 
         # Stop extra correction if the stepsize does not increase sufficiently
         if (hat_alpha_p < 1.005 * alpha_p) || (hat_alpha_d < 1.005 * alpha_d)
@@ -215,6 +220,19 @@ function gondzio_correction_direction!(solver, correction_lb, correction_ub, mu_
     return alpha_p, alpha_d
 end
 
+function factorize_regularized_system!(solver)
+    max_trials = 3
+    for ntrial in 1:max_trials
+        set_aug_diagonal_reg!(solver.kkt, solver)
+        MadNLP.factorize_wrapper!(solver)
+        if is_factorized(solver.kkt.linear_solver)
+            break
+        end
+        solver.del_w *= 100.0
+        solver.del_c *= 100.0
+    end
+end
+
 # Predictor-corrector method
 function mpc!(solver::MadNLP.AbstractMadNLPSolver)
     nlb, nub = length(solver.ind_lb), length(solver.ind_ub)
@@ -226,17 +244,15 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         #####
         # Update info
         #####
-        sd = MadNLP.get_sd(solver.y,solver.zl_r,solver.zu_r,solver.opt.s_max)
-        sc = MadNLP.get_sc(solver.zl_r,solver.zu_r,solver.opt.s_max)
-        solver.inf_pr = MadNLP.get_inf_pr(solver.c)
+        solver.inf_pr = MadNLP.get_inf_pr(solver.c) / max(1.0, solver.norm_b)
         solver.inf_du = MadNLP.get_inf_du(
             MadNLP.full(solver.f),
             MadNLP.full(solver.zl),
             MadNLP.full(solver.zu),
             solver.jacl,
             1.0,
-        )
-        solver.inf_compl = MadNLP.get_inf_compl(solver.x_lr,solver.xl_r,solver.zl_r,solver.xu_r,solver.x_ur,solver.zu_r,0.,sc)
+        ) / max(1.0, solver.norm_c)
+        solver.inf_compl = get_optimality_gap(solver, solver.class)
         MadNLP.print_iter(solver)
 
         #####
@@ -251,8 +267,8 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
         #####
         # Factorize KKT system
         #####
-        set_aug_diagonal_reg!(solver.kkt, solver)
-        MadNLP.factorize_wrapper!(solver)
+        update_regularization!(solver, solver.opt.regularization)
+        factorize_regularized_system!(solver)
 
         #####
         # Prediction step
