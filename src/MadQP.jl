@@ -5,6 +5,7 @@ using LinearAlgebra
 import MadNLP
 import MadNLP: full, LDLFactorizations
 import NLPModels
+import HSL
 
 include("utils.jl")
 include("structure.jl")

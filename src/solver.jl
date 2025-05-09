@@ -114,9 +114,8 @@ function initialize!(solver::MadNLP.AbstractMadNLPSolver{T}) where T
     fill!(solver.jacl, zero(T))
 
     # Initializing scaling factors
-    # TODO: Implement Ruiz equilibration scaling here
     if opt.scaling
-        MadNLP.set_scaling!(
+        MadQP.ruiz_scaling!(
             solver.cb,
             solver.x,
             solver.xl,
@@ -126,6 +125,16 @@ function initialize!(solver::MadNLP.AbstractMadNLPSolver{T}) where T
             solver.ind_ineq,
             T(100),
         )
+        # MadNLP.set_scaling!(
+        #     solver.cb,
+        #     solver.x,
+        #     solver.xl,
+        #     solver.xu,
+        #     solver.y,
+        #     solver.rhs,
+        #     solver.ind_ineq,
+        #     T(100),
+        # )
     end
 
     # Initializing KKT system

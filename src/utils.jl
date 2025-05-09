@@ -148,3 +148,21 @@ function load_options(nlp; options...)
     )
 end
 
+function ruiz_scaling!(cb::SparseCallback, x, xl, xu, y0, rhs, ind_ineq, nlp_scaling_max_gradient)
+    con_buffer = cb.con_buffer
+    jac_buffer = cb.jac_buffer
+
+    # Check with François if it is not already initialized
+    jac_buffer = cb.jac_buffer
+    x0 = variable(x)
+    NLPModels.jac_coord!(nlp, x0, jac_buffer)
+
+    # Set scaling
+    Dr, Dc = HSL.mc77(nlp.m, nlp.n, cb.jac_I, cb.jac_J, jac_buffer, 0; symmetric=false)
+    nlp.row_scaling = Dr
+    nlp.col_scaling = Dc
+
+    y0  ./= Dr
+    rhs .*= Dr
+    return
+end
