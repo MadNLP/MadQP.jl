@@ -148,21 +148,46 @@ function load_options(nlp; options...)
     )
 end
 
-function ruiz_scaling!(cb::SparseCallback, x, xl, xu, y0, rhs, ind_ineq, nlp_scaling_max_gradient)
+function ruiz_scaling!(cb::MadNLP.SparseCallback, x, xl, xu, y0, rhs, ind_ineq, nlp_scaling_max_gradient)
+    # Model and buffers
+    nlp = cb.nlp
     con_buffer = cb.con_buffer
     jac_buffer = cb.jac_buffer
 
     # Check with François if it is not already initialized
-    jac_buffer = cb.jac_buffer
-    x0 = variable(x)
+    x0 = MadNLP.variable(x)
     NLPModels.jac_coord!(nlp, x0, jac_buffer)
 
-    # Set scaling
-    Dr, Dc = HSL.mc77(nlp.m, nlp.n, cb.jac_I, cb.jac_J, jac_buffer, 0; symmetric=false)
+    # Compute Ruiz scaling
+    Dr, Dc = HSL.mc77(cb.ncon, cb.nvar, cb.jac_I, cb.jac_J, jac_buffer, 0; symmetric=false)
+
+    # Equilibrate the Jacobian -- J_scaled = inv(Dr) * J * inv(Dc)
+    @inbounds for k in eachindex(jac_buffer)
+        i = cb.jac_I[k]
+        j = cb.jac_J[k]
+        jac_buffer[k] = jac_buffer[k] / ( Dr[i] * Dc[j] )
+    end
+
+    # Store Dr and Dc in the solver
     nlp.row_scaling = Dr
     nlp.col_scaling = Dc
 
-    y0  ./= Dr
-    rhs .*= Dr
+    # Apply scaling to constraints and multipliers
+    NLPModels.cons!(nlp, x0, cb.con_buffer)
+    cb.con_buffer .*= Dr
+    rhs .= cb.con_buffer
+    y0 ./= Dr
+
+    # Scale slacks and their bounds if present
+    if !isempty(ind_ineq)
+        s = slack(x)
+        sl = slack(xl)
+        su = slack(xu)
+        sc = Dr[ind_ineq]
+        s .*= sc
+        sl .*= sc
+        su .*= sc
+    end
+
     return
 end
