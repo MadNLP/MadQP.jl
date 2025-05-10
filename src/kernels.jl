@@ -80,36 +80,48 @@ function set_extra_correction!(
     correction_lb, correction_ub,
     alpha_p, alpha_d, βmin, βmax, μ,
 )
-    dx = MadNLP.primal(solver.d)
     dlb = MadNLP.dual_lb(solver.d)
     dub = MadNLP.dual_ub(solver.d)
-    tmin, tmax = βmin * μ , βmax * μ
-    # / Lower-bound
-    for i in eachindex(dlb)
-        x_ = solver.x_lr[i] + alpha_p * solver.dx_lr[i] - solver.xl_r[i]
-        z_ = solver.zl_r[i] + alpha_d * dlb[i]
-        v = x_ * z_
-        correction_lb[i] -= if v < tmin
-            tmin - v
-        elseif v > tmax
-            tmax - v
-        else
-            0.0
-        end
-    end
-    # / Upper-bound
-    for i in eachindex(dub)
-        x_ = solver.xu_r[i] - alpha_p * solver.dx_ur[i] - solver.x_ur[i]
-        z_ = solver.zu_r[i] + alpha_d * dub[i]
-        v = x_ * z_
-        correction_ub[i] += if v < tmin
-            tmin - v
-        elseif v > tmax
-            tmax - v
-        else
-            0.0
-        end
-    end
+    tmin, tmax = βmin * μ, βmax * μ
+
+    # Lower-bound correction
+    map!(
+        (x_lr, dx_lr, xl_r, zl_r, dlb_i, corr) -> begin
+            x_ = x_lr + alpha_p * dx_lr - xl_r
+            z_ = zl_r + alpha_d * dlb_i
+            v = x_ * z_
+            δ = if v < tmin
+                tmin - v
+            elseif v > tmax
+                tmax - v
+            else
+                0.0
+            end
+            corr - δ
+        end,
+        correction_lb,
+        solver.x_lr, solver.dx_lr, solver.xl_r, solver.zl_r, dlb, correction_lb
+    )
+
+    # Upper-bound correction
+    map!(
+        (xu_r, dx_ur, x_ur, zu_r, dub_i, corr) -> begin
+            x_ = xu_r - alpha_p * dx_ur - x_ur
+            z_ = zu_r + alpha_d * dub_i
+            v = x_ * z_
+            δ = if v < tmin
+                tmin - v
+            elseif v > tmax
+                tmax - v
+            else
+                0.0
+            end
+            corr + δ
+        end,
+        correction_ub,
+        solver.xu_r, solver.dx_ur, solver.x_ur, solver.zu_r, dub, correction_ub
+    )
+
     return
 end
 
@@ -160,41 +172,56 @@ function get_complementarity_measure(solver::MadNLP.AbstractMadNLPSolver)
     m1, m2 = length(solver.x_lr), length(solver.x_ur)
     if m1 + m2 == 0
         return 0.0
+    else
+        inf_compl_l = mapreduce(
+            (x_lr, xl_r, zl_r) -> (x_lr - xl_r) * zl_r,
+            +,
+            solver.x_lr, solver.xl_r, solver.zl_r;
+            init = zero(eltype(solver.x_lr))
+        )
+        inf_compl_u = mapreduce(
+            (x_ur, xu_r, zu_r) -> (xu_r - x_ur) * zu_r,
+            +,
+            solver.x_ur, solver.xu_r, solver.zu_r;
+            init = zero(eltype(solver.x_ur))
+        )
+        return (inf_compl_l + inf_compl_u) / (m1 + m2)
     end
-    inf_compl = 0.0
-    @inbounds @simd for i in 1:m1
-        inf_compl += (solver.x_lr[i]-solver.xl_r[i])*solver.zl_r[i]
-    end
-    @inbounds @simd for i in 1:m2
-        inf_compl += (solver.xu_r[i]-solver.x_ur[i])*solver.zu_r[i]
-    end
-    return inf_compl / (m1 + m2)
 end
 
 function get_affine_complementarity_measure(solver::MadNLP.AbstractMadNLPSolver, alpha_p, alpha_d)
     m1, m2 = length(solver.x_lr), length(solver.x_ur)
     if m1 + m2 == 0
         return 0.0
-    end
-    dzlb =  MadNLP.dual_lb(solver.d)
-    dzub =  MadNLP.dual_ub(solver.d)
-    @assert all(isfinite, solver.d.values)
+    else
+        dzlb = MadNLP.dual_lb(solver.d)
+        dzub = MadNLP.dual_ub(solver.d)
+        @assert all(isfinite, solver.d.values)
 
-    inf_compl = 0.0
-    @inbounds @simd for i in 1:m1
-        x_lb = solver.xl_r[i]
-        x_ = solver.x_lr[i] + alpha_p * solver.dx_lr[i]
-        z_ = solver.zl_r[i] + alpha_d * dzlb[i]
-        inf_compl += (x_ - x_lb) * z_
+        # for i = 1, ..., m1
+        # x_lb = solver.xl_r[i]
+        # x_ = solver.x_lr[i] + alpha_p * solver.dx_lr[i]
+        # z_ = solver.zl_r[i] + alpha_d * dzlb[i]
+        # inf_compl_l += (x_ - x_lb) * z_
+        inf_compl_l = mapreduce(
+            (xl_r, x_lr, dx_lr, zl_r, dzlb, alpha_p, alpha_d) -> ((x_lr + alpha_p * dx_lr) - xl_r) * (zl_r + alpha_d * dzlb),
+            +,
+            solver.xl_r, solver.x_lr, solver.dx_lr, solver.zl_r, dzlb, alpha_p, alpha_d;
+            init = zero(eltype(solver.x_lr))
+        )
+        # for i = 1, ..., m2
+        # x_ub = solver.xu_r[i]
+        # x_ = solver.x_ur[i] + alpha_p * solver.dx_ur[i]
+        # z_ = solver.zu_r[i] + alpha_d * dzub[i]
+        # inf_compl += (x_ub - x_) * z_
+        inf_compl_u = mapreduce(
+            (xu_r, x_ur, dx_ur, zu_r, dzub, alpha_p, alpha_d) -> (xu_r - (x_ur + alpha_p * dx_ur)) * (zu_r + alpha_d * dzub),
+            +,
+            solver.xu_r, solver.x_ur, solver.dx_ur, solver.zu_r, dzub, alpha_p, alpha_d;
+            init = zero(eltype(solver.x_ur))
+        )
+        return (inf_compl_l + inf_compl_u) / (m1 + m2)
     end
-    @inbounds @simd for i in 1:m2
-        x_ub = solver.xu_r[i]
-        x_ = solver.x_ur[i] + alpha_p * solver.dx_ur[i]
-        z_ = solver.zu_r[i] + alpha_d * dzub[i]
-        inf_compl += (x_ub - x_) * z_
-    end
-
-    return inf_compl / (m1 + m2)
 end
 
 function update_barrier!(rule::Mehrotra, solver, mu_affine)
@@ -218,16 +245,39 @@ function get_alpha_max_primal(xl, lx, xu, ux, dxl, dxu, tau)
     iblock_l, iblock_u = 0, 0
     @inbounds for i in eachindex(xl)
         if dxl[i] < 0 && (xl[i] + alpha_xl * dxl[i] < lx[i])
-            alpha_xl =(-xl[i]+lx[i])*tau/dxl[i]
+            alpha_xl = (-xl[i] + lx[i]) * tau / dxl[i]
             iblock_l = i
         end
     end
     @inbounds for i in eachindex(xu)
         if dxu[i] > 0 && (xu[i] + alpha_xu * dxu[i] > ux[i])
-            alpha_xu =(-xu[i]+ux[i])*tau/dxu[i]
+            alpha_xu = (-xu[i] + ux[i]) * tau / dxu[i]
             iblock_u = i
         end
     end
+
+    # # Should we still check xl[i] + alpha_xl * dxl[i] < lx[i] somehow?
+    # alpha_xl, iblock_l = mapreduce(
+    #   (dxl, lx, xl, tau, i) -> begin
+    #     val = (dxl < 0) && (xl + dxl < lx) ? (-xl + lx) * tau / dxl : Inf
+    #     (val, i)
+    #   end,
+    #   (a, b) -> a[1] < b[1] ? a : b,
+    #   dxl, lx, xl, tau, eachindex(xl);
+    #   init = (1.0, 0)
+    # )
+
+    # # Should we still check xu[i] + alpha_xu * dxu[i] > ux[i] somehow?
+    # alpha_xu, iblock_u = mapreduce(
+    #   (dxu, ux, xu, tau, i) -> begin
+    #     val = (dxu > 0) && (xu + dxu > ux) ? (-xu + ux) * tau / dxu : Inf
+    #     (val, i)
+    #   end,
+    #   (a, b) -> a[1] < b[1] ? a : b,
+    #   dxu, ux, xu, tau, eachindex(xu);
+    #   init = (1.0, 0)
+    # )
+
     return alpha_xl, alpha_xu, iblock_l, iblock_u
 end
 
@@ -246,6 +296,29 @@ function get_alpha_max_dual(zl_r, zu_r, dzl, dzu, tau)
             iblock_u = i
         end
     end
+
+    # # Should we still check zl_r[i] + alpha_zl * dzl[i] < 0 somehow?
+    # alpha_zl, iblock_l = mapreduce(
+    #   (dzl, zl_r, tau, i) -> begin
+    #     val = (dzl < 0) && (zl_r + dzl < 0) ? (-zl_r) * tau / dzl : Inf
+    #     (val, i)
+    #   end,
+    #   (a, b) -> a[1] < b[1] ? a : b,
+    #   dzl, zl_r, tau, eachindex(dzl);
+    #   init = (1.0, 0)
+    # )
+
+    # # Should we still check zu_r[i] + alpha_zu * dzu[i] < 0 somehow?
+    # alpha_zu, iblock_u = mapreduce(
+    #   (dzu, zu_r, tau, i) -> begin
+    #     val = (dzu < 0) && (zu_r + dzu < 0) ? (-zu_r) * tau / dzu : Inf
+    #     (val, i)
+    #   end,
+    #   (a, b) -> a[1] < b[1] ? a : b,
+    #   dzu, zu_r, tau, eachindex(dzu);
+    #   init = (1.0, 0)
+    # )
+
     return alpha_zl, alpha_zu, iblock_l, iblock_u
 end
 
@@ -308,6 +381,8 @@ function update_step!(rule::MehrotraAdaptiveStep, solver)
 
     alpha_p, alpha_d = 1.0, 1.0
 
+    # Require CUDA.jl as a dependency of MadQP.jl
+    # CUDA.@allowscalar begin
     if max_alpha_p < 1.0
         if alpha_xl <= alpha_xu
             tmp = mu_full / (solver.zl_r[i_xl] + max_alpha_d * d_zl[i_xl])
@@ -326,6 +401,7 @@ function update_step!(rule::MehrotraAdaptiveStep, solver)
             alpha_d = -(solver.zu_r[i_zu] - tmp) / d_zu[i_zu]
         end
     end
+    # end
 
     solver.alpha_p = max(alpha_p, rule.gamma_f * max_alpha_p)
     solver.alpha_d = max(alpha_d, rule.gamma_f * max_alpha_d)
