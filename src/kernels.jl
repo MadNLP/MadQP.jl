@@ -156,13 +156,13 @@ function get_complementarity_measure(solver::MadNLP.AbstractMadNLPSolver)
         return 0.0
     else
         inf_compl_l = mapreduce(
-            (x_lr, xl_r, zl_r) -> (x_lr - xl_r) * zl_r),
+            (x_lr, xl_r, zl_r) -> (x_lr - xl_r) * zl_r,
             +,
             solver.x_lr, solver.xl_r, solver.zl_r;
             init = zero(eltype(x_lr))
         )
         inf_compl_u = mapreduce(
-            (x_ur, xu_r, zu_r) -> (xu_r - x_ur) * zu_r),
+            (x_ur, xu_r, zu_r) -> (xu_r - x_ur) * zu_r,
             +,
             solver.x_ur, solver.xu_r, solver.zu_r;
             init = zero(eltype(x_lr))
@@ -226,7 +226,7 @@ function get_alpha_max_primal(xl, lx, xu, ux, dxl, dxu, tau)
     # Should we still check xl[i] + alpha_xl * dxl[i] < lx[i] somehow?
     alpha_xl, iblock_l = mapreduce(
       (dxl, lx, xl, tau, i) -> begin
-        val = dxl < 0 ? (-xl + lx) * tau) / dxl : Inf
+        val = dxl < 0 ? (-xl + lx) * tau / dxl : Inf
         (val, i)
       end,
       (a, b) -> a[1] < b[1] ? a : b,
@@ -237,7 +237,7 @@ function get_alpha_max_primal(xl, lx, xu, ux, dxl, dxu, tau)
     # Should we still check xu[i] + alpha_xu * dxu[i] > ux[i] somehow?
     alpha_xu, iblock_u = mapreduce(
       (dxu, ux, xu, tau, i) -> begin
-        val = dxu > 0 ? (-xu + ux) * tau) / dxu : Inf
+        val = dxu > 0 ? (-xu + ux) * tau / dxu : Inf
         (val, i)
       end,
       (a, b) -> a[1] < b[1] ? a : b,
