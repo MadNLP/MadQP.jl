@@ -262,7 +262,7 @@ function get_alpha_max_dual(zl_r, zu_r, dzl, dzu, tau)
 
     # Should we still check zu_r[i] + alpha_zu * dzu[i] < 0 somehow?
     alpha_zu, iblock_u = mapreduce(
-      (dxu, zu_r, tau, i) -> begin
+      (dzu, zu_r, tau, i) -> begin
         val = dzu < 0 ? (-zu_r) * tau / dzu : Inf
         (val, i)
       end,
