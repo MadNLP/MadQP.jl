@@ -80,30 +80,48 @@ function set_extra_correction!(
     correction_lb, correction_ub,
     alpha_p, alpha_d, βmin, βmax, μ,
 )
-    dx = MadNLP.primal(solver.d)
     dlb = MadNLP.dual_lb(solver.d)
     dub = MadNLP.dual_ub(solver.d)
-    tmin, tmax = βmin * μ , βmax * μ
+    tmin, tmax = βmin * μ, βmax * μ
 
-    # Lower-bound
-    @. begin
-        x_ = solver.x_lr + alpha_p * solver.dx_lr - solver.xl_r
-        z_ = solver.zl_r + alpha_d * dlb
-        v = x_ * z_
-        δl = v < tmin ? (tmin - v) :
-             v > tmax ? (tmax - v) : zero(v)
-        correction_lb -= δl
-    end
+    # Lower-bound correction
+    map!(
+        (x_lr, dx_lr, xl_r, zl_r, dlb_i, corr) -> begin
+            x_ = x_lr + alpha_p * dx_lr - xl_r
+            z_ = zl_r + alpha_d * dlb_i
+            v = x_ * z_
+            δ = if v < tmin
+                tmin - v
+            elseif v > tmax
+                tmax - v
+            else
+                0.0
+            end
+            corr - δ
+        end,
+        correction_lb,
+        solver.x_lr, solver.dx_lr, solver.xl_r, solver.zl_r, dlb, correction_lb
+    )
 
-    # Upper-bound
-    @. begin
-        x_ = solver.xu_r - alpha_p * solver.dx_ur - solver.x_ur
-        z_ = solver.zu_r + alpha_d * dub
-        v = x_ * z_
-        δu = v < tmin ? (tmin - v) :
-             v > tmax ? (tmax - v) : zero(v)
-        correction_ub += δu
-    end
+    # Upper-bound correction
+    map!(
+        (xu_r, dx_ur, x_ur, zu_r, dub_i, corr) -> begin
+            x_ = xu_r - alpha_p * dx_ur - x_ur
+            z_ = zu_r + alpha_d * dub_i
+            v = x_ * z_
+            δ = if v < tmin
+                tmin - v
+            elseif v > tmax
+                tmax - v
+            else
+                0.0
+            end
+            corr + δ
+        end,
+        correction_ub,
+        solver.xu_r, solver.dx_ur, solver.x_ur, solver.zu_r, dub, correction_ub
+    )
+
     return
 end
 
@@ -186,7 +204,7 @@ function get_affine_complementarity_measure(solver::MadNLP.AbstractMadNLPSolver,
         # z_ = solver.zl_r[i] + alpha_d * dzlb[i]
         # inf_compl_l += (x_ - x_lb) * z_
         inf_compl_l = mapreduce(
-            (xl_r, x_lr, dx_lr, zl_r, dzlb, alpha_p, alpha_d) -> (x_lr + alpha_p * dx_lr - xl_r) * (zl_r + alpha_d * dzlb),
+            (xl_r, x_lr, dx_lr, zl_r, dzlb, alpha_p, alpha_d) -> ((x_lr + alpha_p * dx_lr) - xl_r) * (zl_r + alpha_d * dzlb),
             +,
             solver.xl_r, solver.x_lr, solver.dx_lr, solver.zl_r, dzlb, alpha_p, alpha_d;
             init = zero(eltype(solver.x_lr))
@@ -197,7 +215,7 @@ function get_affine_complementarity_measure(solver::MadNLP.AbstractMadNLPSolver,
         # z_ = solver.zu_r[i] + alpha_d * dzub[i]
         # inf_compl += (x_ub - x_) * z_
         inf_compl_u = mapreduce(
-            (xu_r, x_ur, dx_ur, zu_r, dzub, alpha_p, alpha_d) -> (xu_r - x_ur - alpha_p * dx_ur) * (zu_r + alpha_d * dzub),
+            (xu_r, x_ur, dx_ur, zu_r, dzub, alpha_p, alpha_d) -> (xu_r - (x_ur + alpha_p * dx_ur)) * (zu_r + alpha_d * dzub),
             +,
             solver.xu_r, solver.x_ur, solver.dx_ur, solver.zu_r, dzub, alpha_p, alpha_d;
             init = zero(eltype(solver.x_ur))
@@ -223,53 +241,83 @@ end
 =#
 
 function get_alpha_max_primal(xl, lx, xu, ux, dxl, dxu, tau)
-    # Should we still check xl[i] + alpha_xl * dxl[i] < lx[i] somehow?
-    alpha_xl, iblock_l = mapreduce(
-      (dxl, lx, xl, tau, i) -> begin
-        val = dxl < 0 ? (-xl + lx) * tau / dxl : Inf
-        (val, i)
-      end,
-      (a, b) -> a[1] < b[1] ? a : b,
-      dxl, lx, xl, tau, eachindex(xl);
-      init = (1.0, 0)
-    )
+    alpha_xl, alpha_xu = 1.0, 1.0
+    iblock_l, iblock_u = 0, 0
+    @inbounds for i in eachindex(xl)
+        if dxl[i] < 0 && (xl[i] + alpha_xl * dxl[i] < lx[i])
+            alpha_xl = (-xl[i] + lx[i]) * tau / dxl[i]
+            iblock_l = i
+        end
+    end
+    @inbounds for i in eachindex(xu)
+        if dxu[i] > 0 && (xu[i] + alpha_xu * dxu[i] > ux[i])
+            alpha_xu = (-xu[i] + ux[i]) * tau / dxu[i]
+            iblock_u = i
+        end
+    end
 
-    # Should we still check xu[i] + alpha_xu * dxu[i] > ux[i] somehow?
-    alpha_xu, iblock_u = mapreduce(
-      (dxu, ux, xu, tau, i) -> begin
-        val = dxu > 0 ? (-xu + ux) * tau / dxu : Inf
-        (val, i)
-      end,
-      (a, b) -> a[1] < b[1] ? a : b,
-      dxu, ux, xu, tau, eachindex(xu);
-      init = (1.0, 0)
-    )
+    # # Should we still check xl[i] + alpha_xl * dxl[i] < lx[i] somehow?
+    # alpha_xl, iblock_l = mapreduce(
+    #   (dxl, lx, xl, tau, i) -> begin
+    #     val = (dxl < 0) && (xl + dxl < lx) ? (-xl + lx) * tau / dxl : Inf
+    #     (val, i)
+    #   end,
+    #   (a, b) -> a[1] < b[1] ? a : b,
+    #   dxl, lx, xl, tau, eachindex(xl);
+    #   init = (1.0, 0)
+    # )
+
+    # # Should we still check xu[i] + alpha_xu * dxu[i] > ux[i] somehow?
+    # alpha_xu, iblock_u = mapreduce(
+    #   (dxu, ux, xu, tau, i) -> begin
+    #     val = (dxu > 0) && (xu + dxu > ux) ? (-xu + ux) * tau / dxu : Inf
+    #     (val, i)
+    #   end,
+    #   (a, b) -> a[1] < b[1] ? a : b,
+    #   dxu, ux, xu, tau, eachindex(xu);
+    #   init = (1.0, 0)
+    # )
 
     return alpha_xl, alpha_xu, iblock_l, iblock_u
 end
 
 function get_alpha_max_dual(zl_r, zu_r, dzl, dzu, tau)
-    # Should we still check zl_r[i] + alpha_zl * dzl[i] < 0 somehow?
-    alpha_zl, iblock_l = mapreduce(
-      (dzl, zl_r, tau, i) -> begin
-        val = dzl < 0 ? (-zl_r) * tau / dzl : Inf
-        (val, i)
-      end,
-      (a, b) -> a[1] < b[1] ? a : b,
-      dzl, zl_r, tau, eachindex(dzl);
-      init = (1.0, 0)
-    )
+    alpha_zl, alpha_zu = 1.0, 1.0
+    iblock_l, iblock_u = 0, 0
+    @inbounds for i=1:length(zl_r)
+        if dzl[i] < 0 && (zl_r[i] + alpha_zl * dzl[i] < 0.0)
+            alpha_zl = -zl_r[i]*tau/dzl[i]
+            iblock_l = i
+        end
+    end
+    @inbounds for i=1:length(zu_r)
+        if dzu[i] < 0 && (zu_r[i] + alpha_zu * dzu[i] < 0.0)
+            alpha_zu = -zu_r[i]*tau/dzu[i]
+            iblock_u = i
+        end
+    end
 
-    # Should we still check zu_r[i] + alpha_zu * dzu[i] < 0 somehow?
-    alpha_zu, iblock_u = mapreduce(
-      (dzu, zu_r, tau, i) -> begin
-        val = dzu < 0 ? (-zu_r) * tau / dzu : Inf
-        (val, i)
-      end,
-      (a, b) -> a[1] < b[1] ? a : b,
-      dzu, zu_r, tau, eachindex(dzu);
-      init = (1.0, 0)
-    )
+    # # Should we still check zl_r[i] + alpha_zl * dzl[i] < 0 somehow?
+    # alpha_zl, iblock_l = mapreduce(
+    #   (dzl, zl_r, tau, i) -> begin
+    #     val = (dzl < 0) && (zl_r + dzl < 0) ? (-zl_r) * tau / dzl : Inf
+    #     (val, i)
+    #   end,
+    #   (a, b) -> a[1] < b[1] ? a : b,
+    #   dzl, zl_r, tau, eachindex(dzl);
+    #   init = (1.0, 0)
+    # )
+
+    # # Should we still check zu_r[i] + alpha_zu * dzu[i] < 0 somehow?
+    # alpha_zu, iblock_u = mapreduce(
+    #   (dzu, zu_r, tau, i) -> begin
+    #     val = (dzu < 0) && (zu_r + dzu < 0) ? (-zu_r) * tau / dzu : Inf
+    #     (val, i)
+    #   end,
+    #   (a, b) -> a[1] < b[1] ? a : b,
+    #   dzu, zu_r, tau, eachindex(dzu);
+    #   init = (1.0, 0)
+    # )
 
     return alpha_zl, alpha_zu, iblock_l, iblock_u
 end
