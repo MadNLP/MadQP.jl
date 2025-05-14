@@ -37,16 +37,33 @@ function init_starting_point!(solver::MadNLP.AbstractMadNLPSolver)
     MadNLP.jtprod!(res, solver.kkt, solver.y)
     # A'*y + c
     axpy!(1.0, MadNLP.primal(solver.f), res)
-    for i in eachindex(x)
-        if isfinite(l[i]) && isfinite(u[i])
-            solver.zl.values[i] = 0.5 * res[i]
-            solver.zu.values[i] = -0.5 * res[i]
-        elseif isfinite(l[i])
-            solver.zl.values[i] = res[i]
-        elseif isfinite(u[i])
-            solver.zu.values[i] = -res[i]
-        end
-    end
+    # Initialize bounds multipliers
+    map!(
+        (r_, l_, u_, zl_) -> begin
+            val = if isfinite(l_) && isfinite(u_)
+                0.5 * r_
+            elseif isfinite(l_)
+                r_
+            else
+                zl_
+            end
+            val
+        end,
+        solver.zl.values, res, l, u, solver.zl.values,
+    )
+    map!(
+        (r_, l_, u_, zu_) -> begin
+            val = if isfinite(l_) && isfinite(u_)
+                -0.5 * r_
+            elseif isfinite(u_)
+                -r_
+            else
+                zu_
+            end
+            val
+        end,
+        solver.zu.values, res, l, u, solver.zu.values,
+    )
 
     delta_x = max(
         0.0,
@@ -77,15 +94,22 @@ function init_starting_point!(solver::MadNLP.AbstractMadNLPSolver)
 
     # Use Ipopt's heuristic to project x back on the interval [l, u]
     kappa = solver.opt.bound_fac
-    for i in eachindex(x)
-        if x[i] < l[i]
-            pl = min(kappa * max(1.0, l[i]), kappa * (u[i] - l[i]))
-            x[i] = l[i] + pl
-        elseif u[i] < x[i]
-            pu = min(kappa * max(1.0, u[i]), kappa * (u[i] - l[i]))
-            x[i] = u[i] - pu
-        end
-    end
+    map!(
+        (l_, u_, x_) -> begin
+            res = if x_ < l_
+                pl = min(kappa * max(1.0, l_), kappa * (u_ - l_))
+                l_ + pl
+            elseif u_ < x_
+                pu = min(kappa * max(1.0, u_), kappa * (u_ - l_))
+                u_ - pu
+            else
+                x_
+            end
+            res
+        end,
+        x,
+        l, u, x,
+    )
 
     @assert all(solver.zl_r .> 0.0)
     @assert all(solver.zu_r .> 0.0)

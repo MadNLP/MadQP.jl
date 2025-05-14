@@ -239,84 +239,50 @@ end
     Step
 =#
 
-function get_alpha_max_primal(xl, lx, xu, ux, dxl, dxu, tau)
-    alpha_xl, alpha_xu = 1.0, 1.0
-    iblock_l, iblock_u = 0, 0
-    @inbounds for i in eachindex(xl)
-        if dxl[i] < 0 && (xl[i] + alpha_xl * dxl[i] < lx[i])
-            alpha_xl = (-xl[i] + lx[i]) * tau / dxl[i]
-            iblock_l = i
-        end
-    end
-    @inbounds for i in eachindex(xu)
-        if dxu[i] > 0 && (xu[i] + alpha_xu * dxu[i] > ux[i])
-            alpha_xu = (-xu[i] + ux[i]) * tau / dxu[i]
-            iblock_u = i
-        end
-    end
+function get_alpha_max_primal(xl, xlb, xu, xub, dxl, dxu, tau)
+    alpha_xl, iblock_l = mapreduce(
+      (dxl, xlb, xl, i) -> begin
+        val = (dxl < 0) ? (-xl + xlb) * tau / dxl : Inf
+        (val, i)
+      end,
+      (elem1, elem2) -> elem1[1] < elem2[1] ? elem1 : elem2,
+      dxl, xlb, xl, eachindex(xl);
+      init = (1.0, 0)
+    )
 
-    # # Should we still check xl[i] + alpha_xl * dxl[i] < lx[i] somehow?
-    # alpha_xl, iblock_l = mapreduce(
-    #   (dxl, lx, xl, tau, i) -> begin
-    #     val = (dxl < 0) && (xl + dxl < lx) ? (-xl + lx) * tau / dxl : Inf
-    #     (val, i)
-    #   end,
-    #   (a, b) -> a[1] < b[1] ? a : b,
-    #   dxl, lx, xl, tau, eachindex(xl);
-    #   init = (1.0, 0)
-    # )
-
-    # # Should we still check xu[i] + alpha_xu * dxu[i] > ux[i] somehow?
-    # alpha_xu, iblock_u = mapreduce(
-    #   (dxu, ux, xu, tau, i) -> begin
-    #     val = (dxu > 0) && (xu + dxu > ux) ? (-xu + ux) * tau / dxu : Inf
-    #     (val, i)
-    #   end,
-    #   (a, b) -> a[1] < b[1] ? a : b,
-    #   dxu, ux, xu, tau, eachindex(xu);
-    #   init = (1.0, 0)
-    # )
+    alpha_xu, iblock_u = mapreduce(
+      (dxu, xub, xu, i) -> begin
+        val = (dxu > 0) ? (-xu + xub) * tau / dxu : Inf
+        (val, i)
+      end,
+      (elem1, elem2) -> elem1[1] < elem2[1] ? elem1 : elem2,
+      dxu, xub, xu, eachindex(xu);
+      init = (1.0, 0)
+    )
 
     return alpha_xl, alpha_xu, iblock_l, iblock_u
 end
 
 function get_alpha_max_dual(zl_r, zu_r, dzl, dzu, tau)
-    alpha_zl, alpha_zu = 1.0, 1.0
-    iblock_l, iblock_u = 0, 0
-    @inbounds for i=1:length(zl_r)
-        if dzl[i] < 0 && (zl_r[i] + alpha_zl * dzl[i] < 0.0)
-            alpha_zl = -zl_r[i]*tau/dzl[i]
-            iblock_l = i
-        end
-    end
-    @inbounds for i=1:length(zu_r)
-        if dzu[i] < 0 && (zu_r[i] + alpha_zu * dzu[i] < 0.0)
-            alpha_zu = -zu_r[i]*tau/dzu[i]
-            iblock_u = i
-        end
-    end
+    alpha_zl, iblock_l = mapreduce(
+      (dzl, zl_r, i) -> begin
+        val = (dzl < 0) ? (-zl_r) * tau / dzl : Inf
+        (val, i)
+      end,
+      (elem1, elem2) -> elem1[1] < elem2[1] ? elem1 : elem2,
+      dzl, zl_r, eachindex(dzl);
+      init = (1.0, 0)
+    )
 
-    # # Should we still check zl_r[i] + alpha_zl * dzl[i] < 0 somehow?
-    # alpha_zl, iblock_l = mapreduce(
-    #   (dzl, zl_r, tau, i) -> begin
-    #     val = (dzl < 0) && (zl_r + dzl < 0) ? (-zl_r) * tau / dzl : Inf
-    #     (val, i)
-    #   end,
-    #   (a, b) -> a[1] < b[1] ? a : b,
-    #   dzl, zl_r, tau, eachindex(dzl);
-    #   init = (1.0, 0)
-    # )
-
-    # # Should we still check zu_r[i] + alpha_zu * dzu[i] < 0 somehow?
-    # alpha_zu, iblock_u = mapreduce(
-    #   (dzu, zu_r, tau, i) -> begin
-    #     val = (dzu < 0) && (zu_r + dzu < 0) ? (-zu_r) * tau / dzu : Inf
-    #     (val, i)
-    #   end,
-    #   (a, b) -> a[1] < b[1] ? a : b,
-    #   dzu, zu_r, tau, eachindex(dzu);
-    #   init = (1.0, 0)
-    # )
+    alpha_zu, iblock_u = mapreduce(
+      (dzu, zu_r, i) -> begin
+        val = (dzu < 0) && (zu_r + dzu < 0) ? (-zu_r) * tau / dzu : Inf
+        (val, i)
+      end,
+      (elem1, elem2) -> elem1[1] < elem2[1] ? elem1 : elem2,
+      dzu, zu_r, eachindex(dzu);
+      init = (1.0, 0)
+    )
 
     return alpha_zl, alpha_zu, iblock_l, iblock_u
 end
