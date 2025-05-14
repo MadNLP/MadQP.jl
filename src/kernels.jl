@@ -196,7 +196,6 @@ function get_affine_complementarity_measure(solver::MadNLP.AbstractMadNLPSolver,
     else
         dzlb = MadNLP.dual_lb(solver.d)
         dzub = MadNLP.dual_ub(solver.d)
-        @assert all(isfinite, solver.d.values)
 
         # for i = 1, ..., m1
         # x_lb = solver.xl_r[i]
@@ -204,9 +203,9 @@ function get_affine_complementarity_measure(solver::MadNLP.AbstractMadNLPSolver,
         # z_ = solver.zl_r[i] + alpha_d * dzlb[i]
         # inf_compl_l += (x_ - x_lb) * z_
         inf_compl_l = mapreduce(
-            (xl_r, x_lr, dx_lr, zl_r, dzlb, alpha_p, alpha_d) -> ((x_lr + alpha_p * dx_lr) - xl_r) * (zl_r + alpha_d * dzlb),
+            (x_lr, xl_r, dx_lr, zl_r, dz) -> ((x_lr + alpha_p * dx_lr) - xl_r) * (zl_r + alpha_d * dz),
             +,
-            solver.xl_r, solver.x_lr, solver.dx_lr, solver.zl_r, dzlb, alpha_p, alpha_d;
+            solver.x_lr, solver.xl_r, solver.dx_lr, solver.zl_r, dzlb;
             init = zero(eltype(solver.x_lr))
         )
         # for i = 1, ..., m2
@@ -215,9 +214,9 @@ function get_affine_complementarity_measure(solver::MadNLP.AbstractMadNLPSolver,
         # z_ = solver.zu_r[i] + alpha_d * dzub[i]
         # inf_compl += (x_ub - x_) * z_
         inf_compl_u = mapreduce(
-            (xu_r, x_ur, dx_ur, zu_r, dzub, alpha_p, alpha_d) -> (xu_r - (x_ur + alpha_p * dx_ur)) * (zu_r + alpha_d * dzub),
+            (xu_r, x_ur, dx_ur, zu_r, dzub) -> (xu_r - (x_ur + alpha_p * dx_ur)) * (zu_r + alpha_d * dzub),
             +,
-            solver.xu_r, solver.x_ur, solver.dx_ur, solver.zu_r, dzub, alpha_p, alpha_d;
+            solver.xu_r, solver.x_ur, solver.dx_ur, solver.zu_r, dzub;
             init = zero(eltype(solver.x_ur))
         )
         return (inf_compl_l + inf_compl_u) / (m1 + m2)

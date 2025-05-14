@@ -29,14 +29,14 @@ end
     @testset "Equality constraints" begin
         n, m = 20, 15
         # Default Mehrotra-predictor.
-        _compare_with_nlp(n, m, Int[], Int[1, 2, 3, 8]; atol=1e-4, max_ncorr=0)
+        _compare_with_nlp(n, m, Int[], Int[1, 2, 3, 8]; atol=1e-5, max_ncorr=0)
         # Gondzio's multiple correction.
-        _compare_with_nlp(n, m, Int[], Int[1, 2, 3, 8]; atol=1e-4, max_ncorr=5)
+        _compare_with_nlp(n, m, Int[], Int[1, 2, 3, 8]; atol=1e-5, max_ncorr=5)
     end
     @testset "Fixed variables" begin
         n, m = 20, 15
-        _compare_with_nlp(n, m, Int[1, 2], Int[]; atol=1e-4)
-        _compare_with_nlp(n, m, Int[1, 2], Int[1, 2, 3, 8]; atol=1e-4)
+        _compare_with_nlp(n, m, Int[1, 2], Int[]; atol=1e-5)
+        _compare_with_nlp(n, m, Int[1, 2], Int[1, 2, 3, 8]; atol=1e-5)
     end
 
     # Test inner working in MadQP
@@ -88,7 +88,7 @@ end
         solver = MadQP.MPCSolver(
             qp;
             linear_solver=LDLSolver,
-            print_level=MadNLP.DEBUG,
+            print_level=MadNLP.ERROR,
             regularization=reg,
             rethrow_error=true,
         )
