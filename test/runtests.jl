@@ -88,7 +88,7 @@ end
         solver = MadQP.MPCSolver(
             qp;
             linear_solver=LDLSolver,
-            print_level=MadNLP.DEBUG,
+            print_level=MadNLP.ERROR,
             regularization=reg,
             rethrow_error=true,
         )
