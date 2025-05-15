@@ -141,8 +141,8 @@ function MPCSolver(nlp::NLPModels.AbstractNLPModel{T,VT}; kwargs...) where {T, V
     _w2 = MadNLP.UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
 
     # Buffers
-    correction_lb = zeros(nlb)
-    correction_ub = zeros(nub)
+    correction_lb = VT(undef, nlb)
+    correction_ub = VT(undef, nub)
     jacl = VT(undef,n)
     c_trial = VT(undef, m)
     y = VT(undef, m)

@@ -40,7 +40,7 @@ function set_predictive_rhs!(solver::MadNLP.AbstractMadNLPSolver, kkt::MadNLP.Ab
     return
 end
 
-function set_correction_rhs!(solver::MadNLP.AbstractMadNLPSolver, kkt::MadNLP.AbstractKKTSystem, mu::Float64, correction_lb::Vector{Float64}, correction_ub::Vector{Float64}, ind_lb, ind_ub)
+function set_correction_rhs!(solver::MadNLP.AbstractMadNLPSolver, kkt::MadNLP.AbstractKKTSystem, mu::Float64, correction_lb::AbstractVector{Float64}, correction_ub::AbstractVector{Float64}, ind_lb, ind_ub)
     px = MadNLP.primal(solver.p)
     py = MadNLP.dual(solver.p)
     pzl = MadNLP.dual_lb(solver.p)
@@ -422,7 +422,14 @@ end
 
 # Dual objective
 function dual_objective(solver::MPCSolver)
-    return -dot(solver.y, solver.rhs) + dot(solver.zl_r, solver.xl_r) - dot(solver.zu_r, solver.xu_r)
+    dobj = -dot(solver.y, solver.rhs)
+    if length(solver.xl_r) > 0
+        dobj += dot(solver.zl_r, solver.xl_r)
+    end
+    if length(solver.xu_r) > 0
+        dobj -= dot(solver.zu_r, solver.xu_r)
+    end
+    return dobj
 end
 
 function get_optimality_gap(solver::MPCSolver, ::LinearProgram)
