@@ -82,7 +82,13 @@ function init_starting_point!(solver::MadNLP.AbstractMadNLPSolver)
     zl .+= 1.0 + delta_s
     zu .+= 1.0 + delta_s
 
-    μ = dot(xl .- lb, zl) + dot(ub .- xu, zu)
+    μ = 0.0
+    if length(zl) > 0
+        μ += dot(xl .- lb, zl)
+    end
+    if length(zu) > 0
+        μ += dot(ub .- xu, zu)
+    end
 
     delta_x2 = μ / (2 * (sum(zl) + sum(zu)))
     delta_s2 = μ / (2 * (sum(xl .- lb) + sum(ub .- xu)))
@@ -96,7 +102,7 @@ function init_starting_point!(solver::MadNLP.AbstractMadNLPSolver)
     kappa = solver.opt.bound_fac
     map!(
         (l_, u_, x_) -> begin
-            res = if x_ < l_
+            out = if x_ < l_
                 pl = min(kappa * max(1.0, l_), kappa * (u_ - l_))
                 l_ + pl
             elseif u_ < x_
@@ -105,7 +111,7 @@ function init_starting_point!(solver::MadNLP.AbstractMadNLPSolver)
             else
                 x_
             end
-            res
+            out
         end,
         x,
         l, u, x,
