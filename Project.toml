@@ -4,6 +4,7 @@ authors = ["François Pacaud <francoispacaud8@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
 HSL_jll = "017b0a0e-03f4-516a-9b91-836bbd1904dd"
 LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -15,7 +16,7 @@ QPSReader = "10f199a5-22af-520b-b891-7ce84a7b1bd0"
 QuadraticModels = "f468eda6-eac5-11e8-05a5-ff9e497bcd19"
 
 [compat]
-julia = "1.10"
+HSL = "0.5.1"
 LDLFactorizations = "0.10.1"
 LinearAlgebra = "1.10"
 MadNLP = "0.8.7"
@@ -25,6 +26,7 @@ NLPModels = "0.21.4"
 Printf = "1.0"
 QPSReader = "0.2.1"
 Test = "1.10"
+julia = "1.10"
 
 [extras]
 MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"

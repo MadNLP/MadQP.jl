@@ -62,6 +62,9 @@ mutable struct MPCSolver{
     dx_lr::MadNLP.SubVector{T,VT,VI}
     dx_ur::MadNLP.SubVector{T,VT,VI}
 
+    row_scaling::VT
+    col_scaling::VT
+
     iterator::Iterator
 
     inf_pr::T
@@ -158,6 +161,9 @@ function MPCSolver(nlp::NLPModels.AbstractNLPModel{T,VT}; kwargs...) where {T, V
     dx_lr = view(d.xp, ind_cons.ind_lb)
     dx_ur = view(d.xp, ind_cons.ind_ub)
 
+    row_scaling = VT(undef, 0)
+    col_scaling = VT(undef, 0)
+
     cnt.init_time = time() - cnt.start_time
 
     nnzh = MadNLP.get_nnzh(nlp)
@@ -178,6 +184,7 @@ function MPCSolver(nlp::NLPModels.AbstractNLPModel{T,VT}; kwargs...) where {T, V
         ind_cons.ind_ineq, ind_cons.ind_fixed, ind_cons.ind_llb, ind_cons.ind_uub,
         ind_cons.ind_lb, ind_cons.ind_ub,
         x_lr, x_ur, xl_r, xu_r, zl_r, zu_r, dx_lr, dx_ur,
+        row_scaling, col_scaling,
         iterator,
         zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T),
         MadNLP.INITIAL,
@@ -202,4 +209,3 @@ function MadNLP.print_iter(solver::MPCSolver; options...)
         solver.alpha_d,solver.alpha_p))
     return
 end
-
