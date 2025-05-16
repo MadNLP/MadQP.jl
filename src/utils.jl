@@ -148,3 +148,47 @@ function load_options(nlp; options...)
     )
 end
 
+function coo_to_csr(
+    n_rows,
+    n_cols,
+    Ai::AbstractVector{Ti},
+    Aj::AbstractVector{Ti},
+    Ax::AbstractVector{Tv},
+) where {Tv, Ti}
+    @assert length(Ai) == length(Aj) == length(Ax)
+    nnz = length(Ai)
+    Bp = zeros(Ti, n_rows+1)
+    Bj = zeros(Ti, nnz)
+    Bx = zeros(Tv, nnz)
+
+    nnz = length(Ai)
+    @inbounds for n in 1:nnz
+        Bp[Ai[n]] += 1
+    end
+
+    # cumsum the nnz per row to get Bp
+    cumsum = 1
+    @inbounds for i in 1:n_rows
+        tmp = Bp[i]
+        Bp[i] = cumsum
+        cumsum += tmp
+    end
+    Bp[n_rows+1] = nnz + 1
+
+    @inbounds for n in 1:nnz
+        i = Ai[n]
+        dest = Bp[i]
+        Bj[dest] = Aj[n]
+        Bx[dest] = Ax[n]
+        Bp[i] += 1
+    end
+
+    last = 1
+    @inbounds for i in 1:n_rows+1
+        tmp = Bp[i]
+        Bp[i] = last
+        last = tmp
+    end
+
+    return (Bp, Bj, Bx)
+end

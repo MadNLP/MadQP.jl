@@ -1,35 +1,39 @@
 
 using LinearAlgebra
 using JuMP
-using MadQP
 using MadNLP
+using MadQP
 
-using ExaModels
-
+include(joinpath("..", "common.jl"))
 include("cuda_wrapper.jl")
+include("qp_gpu.jl")
 
-# Build QP using JuMP
-A = rand(2, 10)
-model = Model()
-@variable(model,  0 <= x[1:10])
-# @constraint(model, A * x .== 0.0)
-@constraint(model, sum(x) == 1.0)
-@objective(model, Min, -ones(10)' * x)
+src = fetch_netlib()
+sif_files = filter(x -> endswith(x, ".SIF"), readdir(src))
+num_sif_problems = length(sif_files)
 
-# Pass it to the GPU using ExaModels
-qp = ExaModels.ExaModel(model; backend=CUDABackend())
+sif = "WOODW.SIF"
+path_sif = joinpath(src, sif)
+
+# Read the SIF file
+qpdat = import_mps(path_sif)
+
+# Instantiate QuadraticModel
+qp = QuadraticModel(qpdat)
+# Transfer data to the GPU
+qp_gpu = transfer_to_gpu(qp)
 
 solver = MadQP.MPCSolver(
-    qp;
+    qp_gpu;
     max_iter=100,
+    tol=1e-7,
     linear_solver=MadNLPGPU.CUDSSSolver,
     cholmod_algorithm=MadNLP.LDL,
     print_level=MadNLP.INFO,
     scaling=true,
-    tol=1e-8,
-    max_ncorr=3,
-    step_rule=MadQP.AdaptiveStep(0.99),
-    regularization=MadQP.FixedRegularization(1e-8, -1e-9),
+    max_ncorr=0,
+    step_rule=MadQP.AdaptiveStep(0.995),
+    regularization=MadQP.FixedRegularization(1e-8, -1e-8),
     rethrow_error=true,
 )
 
