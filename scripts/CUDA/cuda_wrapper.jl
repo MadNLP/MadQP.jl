@@ -3,6 +3,7 @@ using CUDA
 using CUDA.CUSPARSE
 using MadNLPGPU
 using KernelAbstractions
+using SparseArrays
 
 @kernel function _transfer_to_map!(dest, to_map, src)
     k = @index(Global, Linear)
