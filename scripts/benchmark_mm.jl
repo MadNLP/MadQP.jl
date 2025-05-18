@@ -15,6 +15,7 @@ function run_benchmark(src, probs)
         catch
             continue
         end
+        qpdat = readqps(joinpath(src, prob))
         qp = QuadraticModel(qpdat)
 
         try

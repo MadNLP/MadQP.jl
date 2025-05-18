@@ -11,17 +11,13 @@ function run_benchmark(src, probs)
         @info prob
         try
             qpdat = readqps(joinpath(src, prob))
-        catch
-            continue
-        end
 
-        # Instantiate QuadraticModel
-        qp = QuadraticModel(qpdat)
+            # Instantiate QuadraticModel
+            qp = QuadraticModel(qpdat)
         
-        # Transfer data to the GPU
-        qp_gpu = transfer_to_gpu(qp)
+            # Transfer data to the GPU
+            qp_gpu = transfer_to_gpu(qp)
 
-        try
             solver = MadQP.MPCSolver(
                 qp_gpu;
                 max_iter=300,
@@ -44,6 +40,7 @@ function run_benchmark(src, probs)
             results[k, 5] = res.counters.linear_solver_time
         catch ex
             results[k, 4] = -1
+            continue
         end
     end
     return results
