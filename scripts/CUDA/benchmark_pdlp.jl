@@ -59,4 +59,4 @@ variant = "medium"
 src = "/home/amontoison/Argonne/LP_instances/$variant-problem-instances"
 mps_files = filter(x -> endswith(x, ".mps.gz"), readdir(src))
 results = run_benchmark(src, mps_files)
-writedlm("benchmark-pdlp-gpu.txt", [mps_files results])
+writedlm("benchmark-$variant-pdlp-gpu.txt", [mps_files results])
