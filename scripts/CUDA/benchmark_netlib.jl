@@ -11,13 +11,18 @@ function run_benchmark(src, probs)
         @info prob
         try
             qpdat = readqps(joinpath(src, prob))
+        catch
+            continue
+        end
+        qpdat = readqps(joinpath(src, prob))
 
-            # Instantiate QuadraticModel
-            qp = QuadraticModel(qpdat)
-        
-            # Transfer data to the GPU
-            qp_gpu = transfer_to_gpu(qp)
+        # Instantiate QuadraticModel
+        qp = QuadraticModel(qpdat)
 
+        # Transfer data to the GPU
+        qp_gpu = transfer_to_gpu(qp)
+
+        try
             solver = MadQP.MPCSolver(
                 qp_gpu;
                 max_iter=300,
