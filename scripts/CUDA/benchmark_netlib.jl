@@ -32,7 +32,7 @@ function run_benchmark(src, probs)
                 max_iter=300,
                 tol=1e-7,
                 linear_solver=MadNLPGPU.CUDSSSolver,
-                cholmod_algorithm=MadNLP.LDL,
+                cudss_algorithm=MadNLP.LDL,
                 print_level=MadNLP.INFO,
                 max_ncorr=3,
                 bound_push=1.0,
