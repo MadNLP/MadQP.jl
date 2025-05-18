@@ -1,9 +1,12 @@
 using DelimitedFiles
 using MadNLP
 using MadQP
-using MadNLPHSL
 using QPSReader
 using QuadraticModels
+
+include(joinpath("..", "common.jl"))
+include("cuda_wrapper.jl")
+include("qp_gpu.jl")
 
 function run_benchmark(src, probs)
     nprobs = length(probs)
@@ -16,16 +19,27 @@ function run_benchmark(src, probs)
             continue
         end
         qpdat = readqps(joinpath(src, prob))
+
+        # Instantiate QuadraticModel
         qp = QuadraticModel(qpdat)
+
+        # Transfer data to the GPU
+        qp_gpu = transfer_to_gpu(qp)
 
         try
             solver = MadQP.MPCSolver(
-                qp;
+                qp_gpu;
                 max_iter=300,
-                linear_solver=Ma27Solver,
+                tol=1e-7,
+                linear_solver=MadNLPGPU.CUDSSSolver,
+                cholmod_algorithm=MadNLP.LDL,
                 print_level=MadNLP.INFO,
                 max_ncorr=3,
                 bound_push=1.0,
+                scaling=true,
+                step_rule=MadQP.AdaptiveStep(0.995),
+                regularization=MadQP.FixedRegularization(1e-8, -1e-8),
+                rethrow_error=true,
             )
             res = MadQP.solve!(solver)
             results[k, 1] = Int(res.status)
@@ -35,6 +49,7 @@ function run_benchmark(src, probs)
             results[k, 5] = res.counters.linear_solver_time
         catch ex
             results[k, 4] = -1
+            continue
         end
     end
     return results
@@ -43,4 +58,4 @@ end
 src = fetch_netlib()
 sif_files = filter(x -> endswith(x, ".SIF"), readdir(src))
 results = run_benchmark(src, sif_files)
-writedlm("benchmark-netlib.txt", [sif_files results])
+writedlm("benchmark-netlib-gpu.txt", [sif_files results])

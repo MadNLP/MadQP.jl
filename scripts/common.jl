@@ -1,11 +1,5 @@
-
 using QuadraticModels
-using NLPModels
 using QPSReader
-
-function NLPModels.cons!(qp::QuadraticModel{T}, x::AbstractVector{T}, c::AbstractVector{T}) where T
-    return NLPModels.cons_lin!(qp, x, c)
-end
 
 function import_mps(filename)
     ext = match(r"(.*)\.(.*)", filename).captures[2]
@@ -23,4 +17,3 @@ function import_mps(filename)
     end
     return data
 end
-

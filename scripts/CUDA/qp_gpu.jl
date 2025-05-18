@@ -1,4 +1,3 @@
-
 using LinearAlgebra
 using NLPModels
 using QuadraticModels

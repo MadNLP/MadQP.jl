@@ -1,6 +1,4 @@
-
 using LinearAlgebra
-using JuMP
 using MadNLP
 using MadQP
 
@@ -20,6 +18,7 @@ qpdat = import_mps(path_sif)
 
 # Instantiate QuadraticModel
 qp = QuadraticModel(qpdat)
+
 # Transfer data to the GPU
 qp_gpu = transfer_to_gpu(qp)
 
@@ -38,4 +37,3 @@ solver = MadQP.MPCSolver(
 )
 
 MadQP.solve!(solver)
-

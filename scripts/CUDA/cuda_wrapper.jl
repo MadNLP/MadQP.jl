@@ -1,4 +1,3 @@
-
 using CUDA
 using CUDA.CUSPARSE
 using MadNLPGPU
@@ -31,4 +30,3 @@ function MadNLP.compress_hessian!(
 ) where {T,VT,MT<:CUSPARSE.CuSparseMatrixCSC{T,Int32}}
     MadNLP.transfer!(kkt.hess_com, kkt.hess_raw, kkt.hess_csc_map)
 end
-
