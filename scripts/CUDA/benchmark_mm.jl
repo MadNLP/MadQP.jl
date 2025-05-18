@@ -1,7 +1,6 @@
 using DelimitedFiles
 using MadNLP
 using MadQP
-using MadNLPHSL
 using QPSReader
 using QuadraticModels
 
@@ -15,16 +14,27 @@ function run_benchmark(src, probs)
         catch
             continue
         end
+
+        # Instantiate QuadraticModel
         qp = QuadraticModel(qpdat)
+        
+        # Transfer data to the GPU
+        qp_gpu = transfer_to_gpu(qp)
 
         try
             solver = MadQP.MPCSolver(
-                qp;
+                qp_gpu;
                 max_iter=300,
-                linear_solver=Ma27Solver,
+                tol=1e-7,
+                linear_solver=MadNLPGPU.CUDSSSolver,
+                cholmod_algorithm=MadNLP.LDL,
                 print_level=MadNLP.INFO,
                 max_ncorr=3,
                 bound_push=1.0,
+                scaling=true,
+                step_rule=MadQP.AdaptiveStep(0.995),
+                regularization=MadQP.FixedRegularization(1e-8, -1e-8),
+                rethrow_error=true,
             )
             res = MadQP.solve!(solver)
             results[k, 1] = Int(res.status)
@@ -39,7 +49,7 @@ function run_benchmark(src, probs)
     return results
 end
 
-src = fetch_netlib()
+src = fetch_mm()
 sif_files = filter(x -> endswith(x, ".SIF"), readdir(src))
 results = run_benchmark(src, sif_files)
-writedlm("benchmark-netlib.txt", [sif_files results])
+writedlm("benchmark-mm-gpu.txt", [sif_files results])

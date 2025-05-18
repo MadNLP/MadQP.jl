@@ -4,11 +4,6 @@ using MadQP
 using MadNLPHSL
 using QPSReader
 using QuadraticModels
-using NLPModels
-
-function NLPModels.cons!(qp::QuadraticModel{T}, x::Vector{T}, c::Vector{T}) where T
-    return NLPModels.cons_lin!(qp, x, c)
-end
 
 function run_benchmark(src, probs)
     nprobs = length(probs)
@@ -20,7 +15,6 @@ function run_benchmark(src, probs)
         catch
             continue
         end
-        qpdat = readqps(joinpath(src, prob))
         qp = QuadraticModel(qpdat)
 
         try
