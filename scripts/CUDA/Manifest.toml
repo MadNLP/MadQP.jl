@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "4c5686fefbde10d195ff3725b6fc14b68e6dc78b"
+project_hash = "0c67581871bf054ac12a02e051d30d0b85520505"
 
 [[deps.AMD]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse_jll"]
@@ -147,12 +147,6 @@ deps = ["Bzip2_jll", "TranscodingStreams"]
 git-tree-sha1 = "84990fa864b7f2b4901901ca12736e45ee79068c"
 uuid = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
 version = "0.8.5"
-
-[[deps.CodecZlib]]
-deps = ["TranscodingStreams", "Zlib_jll"]
-git-tree-sha1 = "962834c22b66e32aa10f7611c08c8ca4e20749a9"
-uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
-version = "0.7.8"
 
 [[deps.ColorSchemes]]
 deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "PrecompileTools", "Random"]
@@ -305,6 +299,12 @@ version = "1.5.0"
 git-tree-sha1 = "15d8b0f5a6dca9bf8c02eeaf6687660dafa638d0"
 uuid = "096a3bc2-3ced-46d0-87f4-dd12716f4bfc"
 version = "0.2.0"
+
+[[deps.GZip]]
+deps = ["Libdl", "Zlib_jll"]
+git-tree-sha1 = "0085ccd5ec327c077ec5b91a5f937b759810ba62"
+uuid = "92fee26a-97fe-5a0c-ad85-20a5f3185b63"
+version = "0.6.2"
 
 [[deps.HSL]]
 deps = ["HSL_jll", "Libdl", "LinearAlgebra", "OpenBLAS32_jll", "Quadmath", "SparseArrays"]
@@ -710,7 +710,9 @@ version = "0.5.13"
 
 [[deps.QuadraticModels]]
 deps = ["LinearAlgebra", "LinearOperators", "NLPModels", "NLPModelsModifiers", "SolverCore", "SparseArrays", "SparseMatricesCOO"]
-git-tree-sha1 = "13a9c8e73b3076d54836c4823bee16bb19646f58"
+git-tree-sha1 = "327210881942fd71d5e799bb396e54bb44f51a53"
+repo-rev = "main"
+repo-url = "https://github.com/JuliaSmoothOptimizers/QuadraticModels.jl.git"
 uuid = "f468eda6-eac5-11e8-05a5-ff9e497bcd19"
 version = "0.9.10"
 weakdeps = ["QPSReader"]
@@ -790,10 +792,10 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 version = "1.11.0"
 
 [[deps.SparseMatricesCOO]]
-deps = ["LinearAlgebra", "SparseArrays", "Test", "UnicodePlots"]
-git-tree-sha1 = "b5ca894173efe08725d376063cccb5fa2bcb7a5a"
+deps = ["LinearAlgebra", "SparseArrays", "UnicodePlots"]
+git-tree-sha1 = "ce840cd0ed12fea89665fc96939ef631f11ee2b6"
 uuid = "fa32481b-f100-4b48-8dc8-c62f61b13870"
-version = "0.2.3"
+version = "0.2.4"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "PrecompileTools", "Random", "StaticArraysCore"]

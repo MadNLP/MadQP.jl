@@ -1,6 +1,6 @@
 using QuadraticModels
 using QPSReader
-using CodecZlib
+using GZip
 using CodecBzip2
 
 function import_mps(filename)
