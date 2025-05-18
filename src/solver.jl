@@ -87,7 +87,7 @@ function init_starting_point!(solver::MadNLP.AbstractMadNLPSolver)
         μ += dot(xl, zl) - dot(lb, zl)
     end
     if length(zu) > 0
-        μ += dot(ub, zl) - dot(xu, zl)
+        μ += dot(ub, zu) - dot(xu, zu)
     end
 
     delta_x2 = μ / (2 * (sum(zl) + sum(zu)))
