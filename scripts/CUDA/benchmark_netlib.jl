@@ -4,6 +4,10 @@ using MadQP
 using QPSReader
 using QuadraticModels
 
+include(joinpath("..", "common.jl"))
+include("cuda_wrapper.jl")
+include("qp_gpu.jl")
+
 function run_benchmark(src, probs)
     nprobs = length(probs)
     results = zeros(nprobs, 5)
