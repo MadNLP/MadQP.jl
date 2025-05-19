@@ -38,7 +38,7 @@ function run_benchmark(src, probs)
                 bound_push=1.0,
                 scaling=true,
                 step_rule=MadQP.AdaptiveStep(0.995),
-                regularization=MadQP.FixedRegularization(1e-8, -1e-8),
+                regularization=MadQP.FixedRegularization(1e-10, -1e-10),
                 rethrow_error=true,
             )
             res = MadQP.solve!(solver)
