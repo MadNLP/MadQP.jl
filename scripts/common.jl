@@ -1,5 +1,7 @@
 using QuadraticModels
 using QPSReader
+using GZip
+using CodecBzip2
 
 function import_mps(filename)
     ext = match(r"(.*)\.(.*)", filename).captures[2]

@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "aabb667c9711f9b1322557e5a2b32c27af0f823d"
+project_hash = "0c67581871bf054ac12a02e051d30d0b85520505"
 
 [[deps.AMD]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse_jll"]
@@ -77,6 +77,12 @@ version = "0.5.1"
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 version = "1.11.0"
 
+[[deps.Bzip2_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "1b96ea4a01afe0ea4090c5c8039690672dd13f2e"
+uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
+version = "1.0.9+0"
+
 [[deps.CEnum]]
 git-tree-sha1 = "389ad5c84de1ae7cf0e28e381131c98ea87d54fc"
 uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
@@ -135,6 +141,12 @@ deps = ["CUDA", "KLU", "LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "08859488df9a702a7a3a8018fbf71c91d21b0aff"
 uuid = "a8cc9031-bad2-4722-94f5-40deabb4245c"
 version = "0.2.6"
+
+[[deps.CodecBzip2]]
+deps = ["Bzip2_jll", "TranscodingStreams"]
+git-tree-sha1 = "84990fa864b7f2b4901901ca12736e45ee79068c"
+uuid = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
+version = "0.8.5"
 
 [[deps.ColorSchemes]]
 deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "PrecompileTools", "Random"]
@@ -287,6 +299,12 @@ version = "1.5.0"
 git-tree-sha1 = "15d8b0f5a6dca9bf8c02eeaf6687660dafa638d0"
 uuid = "096a3bc2-3ced-46d0-87f4-dd12716f4bfc"
 version = "0.2.0"
+
+[[deps.GZip]]
+deps = ["Libdl", "Zlib_jll"]
+git-tree-sha1 = "0085ccd5ec327c077ec5b91a5f937b759810ba62"
+uuid = "92fee26a-97fe-5a0c-ad85-20a5f3185b63"
+version = "0.6.2"
 
 [[deps.HSL]]
 deps = ["HSL_jll", "Libdl", "LinearAlgebra", "OpenBLAS32_jll", "Quadmath", "SparseArrays"]
@@ -692,7 +710,9 @@ version = "0.5.13"
 
 [[deps.QuadraticModels]]
 deps = ["LinearAlgebra", "LinearOperators", "NLPModels", "NLPModelsModifiers", "SolverCore", "SparseArrays", "SparseMatricesCOO"]
-git-tree-sha1 = "13a9c8e73b3076d54836c4823bee16bb19646f58"
+git-tree-sha1 = "327210881942fd71d5e799bb396e54bb44f51a53"
+repo-rev = "main"
+repo-url = "https://github.com/JuliaSmoothOptimizers/QuadraticModels.jl.git"
 uuid = "f468eda6-eac5-11e8-05a5-ff9e497bcd19"
 version = "0.9.10"
 weakdeps = ["QPSReader"]
@@ -772,10 +792,10 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 version = "1.11.0"
 
 [[deps.SparseMatricesCOO]]
-deps = ["LinearAlgebra", "SparseArrays", "Test", "UnicodePlots"]
-git-tree-sha1 = "b5ca894173efe08725d376063cccb5fa2bcb7a5a"
+deps = ["LinearAlgebra", "SparseArrays", "UnicodePlots"]
+git-tree-sha1 = "ce840cd0ed12fea89665fc96939ef631f11ee2b6"
 uuid = "fa32481b-f100-4b48-8dc8-c62f61b13870"
-version = "0.2.3"
+version = "0.2.4"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "PrecompileTools", "Random", "StaticArraysCore"]
@@ -889,6 +909,11 @@ version = "0.1.4"
 
     [deps.Tracy.weakdeps]
     TracyProfiler_jll = "0c351ed6-8a68-550e-8b79-de6f926da83c"
+
+[[deps.TranscodingStreams]]
+git-tree-sha1 = "0c45878dcfdcfa8480052b6ab162cdd138781742"
+uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
+version = "0.11.3"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
