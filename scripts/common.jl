@@ -19,3 +19,81 @@ function import_mps(filename)
     end
     return data
 end
+
+function _scale_coo!(A, Dr, Dc)
+    k = 1
+    for (i, j) in zip(A.rows, A.cols)
+        A.vals[k] = A.vals[k] / (Dr[i] * Dc[j])
+        k += 1
+    end
+end
+
+"""
+    scale_qp
+
+Scale QP using Ruiz' equilibration method.
+
+"""
+function scale_qp(qp)
+    A = qp.data.A
+    m, n = size(A)
+    A_csc = sparse(A.rows, A.cols, A.vals, m, n)
+    Dr, Dc = HSL.mc77(A_csc, 0)
+
+    Hs = copy(qp.data.H)
+    As = copy(qp.data.A)
+    _scale_coo!(Hs, Dr, Dc)
+    _scale_coo!(As, Dr, Dc)
+
+    data = QuadraticModels.QPData(
+        qp.data.c0,
+        qp.data.c ./ Dc,
+        qp.data.v,
+        Hs,
+        As,
+    )
+
+    return QuadraticModel(
+        NLPModelMeta(
+            qp.meta.nvar;
+            ncon=qp.meta.ncon,
+            lvar=qp.meta.lvar .* Dc,
+            uvar=qp.meta.uvar .* Dc,
+            lcon=qp.meta.lcon ./ Dr,
+            ucon=qp.meta.ucon ./ Dr,
+            x0=qp.meta.x0 .* Dc,
+            y0=qp.meta.y0 ./ Dr,
+            nnzj=qp.meta.nnzj,
+            lin_nnzj=qp.meta.nnzj,
+            lin=qp.meta.lin,
+            nnzh=qp.meta.nnzh,
+            minimize=qp.meta.minimize,
+        ),
+        Counters(),
+        data,
+    ), Dr, Dc
+end
+
+"""
+    presolve_qp
+
+Run basic presolve routines implemented in QuadraticModels and return
+a new QuadraticModel.
+
+"""
+function presolve_qp(qp)
+    # Use routine implemented in QuadraticModels
+    res = presolve(qp)
+
+    qp_presolved = res.solver_specific[:presolvedQM]
+
+    new_qp = QuadraticModel(
+        qp_presolved.meta,
+        qp_presolved.counters,
+        qp_presolved.data,
+    )
+    new_qp.data.v = zeros(NLPModels.get_nvar(new_qp))
+
+    return new_qp
+end
+
