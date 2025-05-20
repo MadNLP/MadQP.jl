@@ -72,8 +72,8 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
 end
 
 function LinearAlgebra.mul!(y::CuVector{T}, A::MadQPOperator{T}, x::CuVector{T}) where T <: BlasFloat
-    (length(y) != A.A.m) && throw(DimensionMismatch("length(y) != A.m"))
-    (length(x) != A.A.n) && throw(DimensionMismatch("length(x) != A.n"))
+    (length(y) != A.m) && throw(DimensionMismatch("length(y) != A.m"))
+    (length(x) != A.n) && throw(DimensionMismatch("length(x) != A.n"))
     descY = CUSPARSE.CuDenseVectorDescriptor(y)
     descX = CUSPARSE.CuDenseVectorDescriptor(x)
     algo = CUSPARSE.CUSPARSE_SPMV_ALG_DEFAULT
