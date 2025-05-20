@@ -22,22 +22,24 @@ new_qp = presolve_qp(qp)
 scaled_qp, Dr, Dc = scale_qp(new_qp)
 
 # Transfer data to the GPU
-qp_gpu = transfer_to_gpu(scaled_qp)
+for operator in (false, true)
+    qp_gpu = transfer_to_gpu(scaled_qp; operator)
 
-solver = MadQP.MPCSolver(
-    qp_gpu;
-    max_iter=100,
-    tol=1e-7,
-    linear_solver=MadNLPGPU.CUDSSSolver,
-    cudss_algorithm=MadNLP.LDL,
-    print_level=MadNLP.INFO,
-    scaling=true,
-    max_ncorr=0,
-    step_rule=MadQP.AdaptiveStep(0.995),
-    regularization=MadQP.FixedRegularization(1e-8, -1e-8),
-    rethrow_error=true,
-    richardson_max_iter=0,
-    richardson_tol=Inf,
-)
+    solver = MadQP.MPCSolver(
+        qp_gpu;
+        max_iter=100,
+        tol=1e-7,
+        linear_solver=MadNLPGPU.CUDSSSolver,
+        cudss_algorithm=MadNLP.LDL,
+        print_level=MadNLP.INFO,
+        scaling=true,
+        max_ncorr=0,
+        step_rule=MadQP.AdaptiveStep(0.995),
+        regularization=MadQP.FixedRegularization(1e-8, -1e-8),
+        rethrow_error=true,
+        richardson_max_iter=0,
+        richardson_tol=Inf,
+    )
 
-MadQP.solve!(solver)
+    MadQP.solve!(solver)
+end
