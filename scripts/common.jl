@@ -3,6 +3,7 @@ using QPSReader
 using GZip
 using CodecBzip2
 using HSL
+using NLPModels
 
 function import_mps(filename)
     ext = match(r"(.*)\.(.*)", filename).captures[2]
