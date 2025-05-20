@@ -1,4 +1,3 @@
-
 abstract type AbstractConicProblem end
 
 struct LinearProgram <: AbstractConicProblem end

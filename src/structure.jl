@@ -1,5 +1,3 @@
-
-
 mutable struct MPCSolver{
     T,
     VT <: AbstractVector{T},

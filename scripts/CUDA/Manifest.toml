@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "0c67581871bf054ac12a02e051d30d0b85520505"
+project_hash = "9efb2d4dfb84386695389f589f089233369da462"
 
 [[deps.AMD]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse_jll"]
@@ -538,14 +538,8 @@ git-tree-sha1 = "9bef4b78dedd843997c055d1ab592c897e62f576"
 uuid = "d72a61cc-809d-412f-99be-fd81f4b8a598"
 version = "0.7.7"
 
-[[deps.MadNLPHSL]]
-deps = ["HSL", "LinearAlgebra", "MadNLP"]
-git-tree-sha1 = "4241cf4b0a8a4f96691f77738bc02a21ad8bd4bf"
-uuid = "7fb6135f-58fe-4112-84ca-653cf5be0c77"
-version = "0.6.0"
-
 [[deps.MadQP]]
-deps = ["HSL_jll", "LDLFactorizations", "LinearAlgebra", "MadNLP", "MadNLPHSL", "NLPModels", "Printf", "QPSReader", "QuadraticModels"]
+deps = ["LDLFactorizations", "LinearAlgebra", "MadNLP", "NLPModels", "Printf"]
 path = "../.."
 uuid = "4406d55e-1099-4ca6-ac6a-6cf051b10024"
 version = "0.1.0"
@@ -710,11 +704,9 @@ version = "0.5.13"
 
 [[deps.QuadraticModels]]
 deps = ["LinearAlgebra", "LinearOperators", "NLPModels", "NLPModelsModifiers", "SolverCore", "SparseArrays", "SparseMatricesCOO"]
-git-tree-sha1 = "327210881942fd71d5e799bb396e54bb44f51a53"
-repo-rev = "main"
-repo-url = "https://github.com/JuliaSmoothOptimizers/QuadraticModels.jl.git"
+git-tree-sha1 = "84f5adb7b0510c2830d2d18ef1475aabe70682b5"
 uuid = "f468eda6-eac5-11e8-05a5-ff9e497bcd19"
-version = "0.9.10"
+version = "0.9.12"
 weakdeps = ["QPSReader"]
 
     [deps.QuadraticModels.extensions]
