@@ -18,9 +18,11 @@ qpdat = import_mps(path_sif)
 
 # Instantiate QuadraticModel
 qp = QuadraticModel(qpdat)
+new_qp = presolve_qp(qp)
+scaled_qp, Dr, Dc = scale_qp(new_qp)
 
 # Transfer data to the GPU
-qp_gpu = transfer_to_gpu(qp)
+qp_gpu = transfer_to_gpu(scaled_qp)
 
 solver = MadQP.MPCSolver(
     qp_gpu;

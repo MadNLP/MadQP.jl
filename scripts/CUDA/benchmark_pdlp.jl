@@ -13,18 +13,20 @@ function run_benchmark(src, probs)
     results = zeros(nprobs, 5)
     for (k, prob) in enumerate(probs)
         @info prob
-        try
-            qpdat = import_mps(joinpath(src, prob))
-        catch
+        qpdat = try
+            import_mps(joinpath(src, prob))
+        catch e
+            @warn "Failed to import $prob: $e"
             continue
         end
-        qpdat = import_mps(joinpath(src, prob))
 
         # Instantiate QuadraticModel
         qp = QuadraticModel(qpdat)
+        new_qp = presolve_qp(qp)
+        scaled_qp, Dr, Dc = scale_qp(new_qp)
 
         # Transfer data to the GPU
-        qp_gpu = transfer_to_gpu(qp)
+        qp_gpu = transfer_to_gpu(scaled_qp)
 
         try
             solver = MadQP.MPCSolver(
