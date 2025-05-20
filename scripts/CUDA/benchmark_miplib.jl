@@ -9,6 +9,7 @@ include("cuda_wrapper.jl")
 include("qp_gpu.jl")
 
 function run_benchmark(src, probs)
+    probs = probs[232:end]
     nprobs = length(probs)
     results = zeros(nprobs, 5)
     for (k, prob) in enumerate(probs)
@@ -61,6 +62,6 @@ function run_benchmark(src, probs)
 end
 
 src = "/home/amontoison/Argonne/miplib"
-mps_files = filter(x -> endswith(x, ".mps.gz"), readdir(src))
+mps_files = filter(x -> endswith(x, ".mps.gz") && (x != "Test3.mps.gz") && (x != "gasprod1-1.mps.gz"), readdir(src))
 results = run_benchmark(src, mps_files)
 writedlm("benchmark-miplib-gpu.txt", [mps_files results])
