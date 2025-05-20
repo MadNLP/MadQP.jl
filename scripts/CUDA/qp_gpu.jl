@@ -110,16 +110,30 @@ end
     Pass QuadraticModel to the GPU
 =#
 
-function transfer_to_gpu(qp::QuadraticModel{T, VT}) where {T, VT}
-    return QuadraticModel(
-        CuVector{T}(qp.data.c),
-        CuSparseMatrixCSR(qp.data.H);
-        A=CuSparseMatrixCSR(qp.data.A),
-        lcon=CuVector{T}(qp.meta.lcon),
-        ucon=CuVector{T}(qp.meta.ucon),
-        lvar=CuVector{T}(qp.meta.lvar),
-        uvar=CuVector{T}(qp.meta.uvar),
-        c0=qp.data.c0,
-        x0=CuVector{T}(qp.meta.x0),
-    )
+function transfer_to_gpu(qp::QuadraticModel{T, VT}; operator::Bool=false) where {T, VT}
+    if operator
+        return QuadraticModel(
+            CuVector{T}(qp.data.c),
+            CuSparseMatrixCSR(qp.data.H) |> MadQPOperator;
+            A=CuSparseMatrixCSR(qp.data.A) |> MadQPOperator,
+            lcon=CuVector{T}(qp.meta.lcon),
+            ucon=CuVector{T}(qp.meta.ucon),
+            lvar=CuVector{T}(qp.meta.lvar),
+            uvar=CuVector{T}(qp.meta.uvar),
+            c0=qp.data.c0,
+            x0=CuVector{T}(qp.meta.x0),
+        )
+    else
+        return QuadraticModel(
+            CuVector{T}(qp.data.c),
+            CuSparseMatrixCSR(qp.data.H);
+            A=CuSparseMatrixCSR(qp.data.A),
+            lcon=CuVector{T}(qp.meta.lcon),
+            ucon=CuVector{T}(qp.meta.ucon),
+            lvar=CuVector{T}(qp.meta.lvar),
+            uvar=CuVector{T}(qp.meta.uvar),
+            c0=qp.data.c0,
+            x0=CuVector{T}(qp.meta.x0),
+        )
+    end
 end
