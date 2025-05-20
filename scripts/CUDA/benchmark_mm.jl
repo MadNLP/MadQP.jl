@@ -42,6 +42,8 @@ function run_benchmark(src, probs)
                 step_rule=MadQP.AdaptiveStep(0.995),
                 regularization=MadQP.FixedRegularization(1e-8, -1e-8),
                 rethrow_error=true,
+                richardson_max_iter=0,
+                richardson_tol=Inf,
             )
             res = MadQP.solve!(solver)
             results[k, 1] = Int(res.status)
