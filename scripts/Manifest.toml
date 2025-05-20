@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "5a4e51686de453e245793ffc12d677425f11448e"
+project_hash = "c974e11ccc05a6ddeff5300b18c9c5dd4bf692b4"
 
 [[deps.AMD]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse_jll"]
@@ -137,9 +137,9 @@ version = "0.8.5"
 
 [[deps.HSL]]
 deps = ["HSL_jll", "Libdl", "LinearAlgebra", "OpenBLAS32_jll", "Quadmath", "SparseArrays"]
-git-tree-sha1 = "1cfc6a0b38f432db210f6148ad945ce2d56d85fb"
+git-tree-sha1 = "4898d678a6f7549c41bd9f187233f979da18bc36"
 uuid = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
-version = "0.5.0"
+version = "0.5.1"
 
 [[deps.HSL_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl"]
@@ -264,7 +264,7 @@ uuid = "7fb6135f-58fe-4112-84ca-653cf5be0c77"
 version = "0.6.0"
 
 [[deps.MadQP]]
-deps = ["HSL_jll", "LDLFactorizations", "LinearAlgebra", "MadNLP", "MadNLPHSL", "NLPModels", "Printf", "QPSReader", "QuadraticModels"]
+deps = ["LDLFactorizations", "LinearAlgebra", "MadNLP", "NLPModels", "Printf"]
 path = ".."
 uuid = "4406d55e-1099-4ca6-ac6a-6cf051b10024"
 version = "0.1.0"
@@ -297,9 +297,9 @@ version = "2023.12.12"
 
 [[deps.NLPModels]]
 deps = ["FastClosures", "LinearAlgebra", "LinearOperators", "Printf", "SparseArrays"]
-git-tree-sha1 = "808b4d1a5ee2a8cc089b285dd27284efb47b35c7"
+git-tree-sha1 = "ac58082a07f0bd559292e869770d462d7ad0a7e2"
 uuid = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
-version = "0.21.4"
+version = "0.21.5"
 
 [[deps.NLPModelsModifiers]]
 deps = ["FastClosures", "LinearAlgebra", "LinearOperators", "NLPModels", "Printf", "SparseArrays"]
@@ -384,10 +384,14 @@ uuid = "be4d8f0f-7fa4-5f49-b795-2f01399ab2dd"
 version = "0.5.13"
 
 [[deps.QuadraticModels]]
-deps = ["LinearAlgebra", "LinearOperators", "NLPModels", "NLPModelsModifiers", "Requires", "SolverCore", "SparseArrays", "SparseMatricesCOO"]
-git-tree-sha1 = "4e883ad48587c3abd1ef49d8f964029d28edd4d9"
+deps = ["LinearAlgebra", "LinearOperators", "NLPModels", "NLPModelsModifiers", "SolverCore", "SparseArrays", "SparseMatricesCOO"]
+git-tree-sha1 = "84f5adb7b0510c2830d2d18ef1475aabe70682b5"
 uuid = "f468eda6-eac5-11e8-05a5-ff9e497bcd19"
-version = "0.9.8"
+version = "0.9.12"
+weakdeps = ["QPSReader"]
+
+    [deps.QuadraticModels.extensions]
+    QuadraticModelsQPSReaderExt = "QPSReader"
 
 [[deps.Random]]
 deps = ["SHA"]
@@ -431,10 +435,10 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 version = "1.11.0"
 
 [[deps.SparseMatricesCOO]]
-deps = ["LinearAlgebra", "SparseArrays", "Test", "UnicodePlots"]
-git-tree-sha1 = "b5ca894173efe08725d376063cccb5fa2bcb7a5a"
+deps = ["LinearAlgebra", "SparseArrays", "UnicodePlots"]
+git-tree-sha1 = "ce840cd0ed12fea89665fc96939ef631f11ee2b6"
 uuid = "fa32481b-f100-4b48-8dc8-c62f61b13870"
-version = "0.2.3"
+version = "0.2.4"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "PrecompileTools", "Random", "StaticArraysCore"]
