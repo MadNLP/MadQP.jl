@@ -12,12 +12,12 @@ function run_benchmark(src, probs)
     results = zeros(nprobs, 5)
     for (k, prob) in enumerate(probs)
         @info prob
-        try
-            qpdat = readqps(joinpath(src, prob))
-        catch
+        qpdat = try
+            import_mps(joinpath(src, prob))
+        catch e
+            @warn "Failed to import $prob: $e"
             continue
         end
-        qpdat = readqps(joinpath(src, prob))
         qp = QuadraticModel(qpdat)
         new_qp = presolve_qp(qp)
         scaled_qp, Dr, Dc = scale_qp(new_qp)

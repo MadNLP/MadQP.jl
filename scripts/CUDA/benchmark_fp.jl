@@ -13,12 +13,12 @@ function run_benchmark(src, probs)
     results = zeros(nprobs, 5)
     for (k, prob) in enumerate(probs)
         @info prob
-        try
-            qpdat = import_mps(joinpath(src, prob))
-        catch
+        qpdat = try
+            import_mps(joinpath(src, prob))
+        catch e
+            @warn "Failed to import $prob: $e"
             continue
         end
-        qpdat = import_mps(joinpath(src, prob))
 
         # Instantiate QuadraticModel
         qp = QuadraticModel(qpdat)
