@@ -39,7 +39,7 @@ function scale_qp(qp)
     A = qp.data.A
     m, n = size(A)
 
-    if LIBHSL_isfunctional
+    if LIBHSL_isfunctional()
         A_csc = sparse(A.rows, A.cols, A.vals, m, n)
         Dr, Dc = HSL.mc77(A_csc, 0)
 
