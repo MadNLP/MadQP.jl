@@ -52,6 +52,7 @@ function run_benchmark(src, probs)
             results[k, 4] = res.counters.total_time
             results[k, 5] = res.counters.linear_solver_time
         catch ex
+            @warn "Failed to solve $prob: $ex"
             results[k, 4] = -1
             continue
         end
