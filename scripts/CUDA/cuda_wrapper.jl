@@ -37,6 +37,7 @@ mutable struct MadQPOperator{T} <: AbstractMatrix{T}
     type::Type{T}
     m::Int
     n::Int
+    nnzA::Int
     transa::Char
     descA::CUSPARSE.CuSparseMatrixDescriptor
     buffer::CuVector{UInt8}
@@ -44,13 +45,15 @@ end
 
 Base.eltype(A::MadQPOperator{T}) where T = T
 Base.size(A::MadQPOperator) = (A.m, A.n)
+SparseArrays.nnz(A::MadQPOperator) = A.nnzA
 
 for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
                                      (:(CuSparseMatrixCSC{T}), :BlasFloat),
                                      (:(CuSparseMatrixCOO{T}), :BlasFloat))
     @eval begin
         function MadQPOperator(A::$SparseMatrixType; transa::Char='N') where T <: $BlasType
-            m,n = size(A)
+            m, n = size(A)
+            nnzA = nnz(A)
             alpha = Ref{T}(one(T))
             beta = Ref{T}(zero(T))
             descA = CUSPARSE.CuSparseMatrixDescriptor(A, 'O')
@@ -63,7 +66,7 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
             if CUSPARSE.version() ≥ v"12.3"
                 CUSPARSE.cusparseSpMV_preprocess(CUSPARSE.handle(), transa, alpha, descA, descX, beta, descY, T, algo, buffer)
             end
-            return MadQPOperator{T}(T, m, n, transa, descA, buffer)
+            return MadQPOperator{T}(T, m, n, nnzA, transa, descA, buffer)
         end
     end
 end
