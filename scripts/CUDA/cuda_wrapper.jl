@@ -33,19 +33,17 @@ function MadNLP.compress_hessian!(
     MadNLP.transfer!(kkt.hess_com, kkt.hess_raw, kkt.hess_csc_map)
 end
 
-mutable struct MadQPOperator{T} <: AbstractMatrix{T}
+mutable struct MadQPOperator{T,M} <: AbstractMatrix{T}
     type::Type{T}
-    m::Int
-    n::Int
-    nnzA::Int
+    A::M
     transa::Char
     descA::CUSPARSE.CuSparseMatrixDescriptor
     buffer::CuVector{UInt8}
 end
 
 Base.eltype(A::MadQPOperator{T}) where T = T
-Base.size(A::MadQPOperator) = (A.m, A.n)
-SparseArrays.nnz(A::MadQPOperator) = A.nnzA
+Base.size(A::MadQPOperator) = size(A.A)
+SparseArrays.nnz(A::MadQPOperator) = nnz(A.A)
 
 for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
                                      (:(CuSparseMatrixCSC{T}), :BlasFloat),
@@ -53,7 +51,6 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
     @eval begin
         function MadQPOperator(A::$SparseMatrixType; transa::Char='N') where T <: $BlasType
             m, n = size(A)
-            nnzA = nnz(A)
             alpha = Ref{T}(one(T))
             beta = Ref{T}(zero(T))
             descA = CUSPARSE.CuSparseMatrixDescriptor(A, 'O')
@@ -66,14 +63,14 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
             if CUSPARSE.version() ≥ v"12.3"
                 CUSPARSE.cusparseSpMV_preprocess(CUSPARSE.handle(), transa, alpha, descA, descX, beta, descY, T, algo, buffer)
             end
-            return MadQPOperator{T}(T, m, n, nnzA, transa, descA, buffer)
+            return MadQPOperator{T}(T, A, transa, descA, buffer)
         end
     end
 end
 
 function LinearAlgebra.mul!(y::CuVector{T}, A::MadQPOperator{T}, x::CuVector{T}) where T <: BlasFloat
-    (length(y) != A.m) && throw(DimensionMismatch("length(y) != A.m"))
-    (length(x) != A.n) && throw(DimensionMismatch("length(x) != A.n"))
+    (length(y) != A.A.m) && throw(DimensionMismatch("length(y) != A.m"))
+    (length(x) != A.A.n) && throw(DimensionMismatch("length(x) != A.n"))
     descY = CUSPARSE.CuDenseVectorDescriptor(y)
     descX = CUSPARSE.CuDenseVectorDescriptor(x)
     algo = CUSPARSE.CUSPARSE_SPMV_ALG_DEFAULT
