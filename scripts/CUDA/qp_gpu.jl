@@ -25,13 +25,13 @@ function fill_structure!(A::CUSPARSE.CuSparseMatrixCSR, rows, cols)
     end
 end
 
-function NLPModels.obj(qp::AbstractQuadraticModel{T, S, M1}, x::AbstractVector) where {T, S, M1 <: MadQPOperator}
+function NLPModels.obj(qp::QuadraticModel{T, S, M1}, x::AbstractVector) where {T, S, M1 <: MadQPOperator}
   NLPModels.increment!(qp, :neval_obj)
   mul!(qp.data.v, qp.data.H, x)
   return qp.data.c0 + dot(qp.data.c, x) + dot(qp.data.v, x) / 2
 end
 
-function NLPModels.grad!(qp::AbstractQuadraticModel{T, S, M1}, x::AbstractVector, g::AbstractVector) where {T, S, M1 <: MadQPOperator}
+function NLPModels.grad!(qp::QuadraticModel{T, S, M1}, x::AbstractVector, g::AbstractVector) where {T, S, M1 <: MadQPOperator}
   NLPModels.increment!(qp, :neval_grad)
   mul!(g, qp.data.H, x)
   g .+= qp.data.c
