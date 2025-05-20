@@ -71,7 +71,6 @@ end
 function LinearAlgebra.mul!(y::CuVector{T}, A::MadQPOperator{T}, x::CuVector{T}) where T <: BlasFloat
     (length(y) != A.m) && throw(DimensionMismatch("length(y) != A.m"))
     (length(x) != A.n) && throw(DimensionMismatch("length(x) != A.n"))
-    (A.nrhs == 1) || throw(DimensionMismatch("A.nrhs != 1"))
     descY = CUSPARSE.CuDenseVectorDescriptor(y)
     descX = CUSPARSE.CuDenseVectorDescriptor(x)
     algo = CUSPARSE.CUSPARSE_SPMV_ALG_DEFAULT
