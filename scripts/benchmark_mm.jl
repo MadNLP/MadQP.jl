@@ -5,6 +5,8 @@ using MadNLPHSL
 using QPSReader
 using QuadraticModels
 
+include("common.jl")
+
 function run_benchmark(src, probs)
     nprobs = length(probs)
     results = zeros(nprobs, 5)
@@ -17,10 +19,12 @@ function run_benchmark(src, probs)
         end
         qpdat = readqps(joinpath(src, prob))
         qp = QuadraticModel(qpdat)
+        new_qp = presolve_qp(qp)
+        scaled_qp, Dr, Dc = scale_qp(new_qp)
 
         try
             solver = MadQP.MPCSolver(
-                qp;
+                scaled_qp;
                 max_iter=300,
                 linear_solver=Ma27Solver,
                 print_level=MadNLP.INFO,
