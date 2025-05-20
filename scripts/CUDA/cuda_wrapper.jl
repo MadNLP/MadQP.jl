@@ -63,7 +63,8 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
             if CUSPARSE.version() ≥ v"12.3"
                 CUSPARSE.cusparseSpMV_preprocess(CUSPARSE.handle(), transa, alpha, descA, descX, beta, descY, T, algo, buffer)
             end
-            return MadQPOperator{T}(T, A, transa, descA, buffer)
+            M = typeof(A)
+            return MadQPOperator{T,M}(T, A, transa, descA, buffer)
         end
     end
 end
