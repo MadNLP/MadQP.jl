@@ -1,5 +1,6 @@
 [deps]
 CodecBzip2 = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 GZip = "92fee26a-97fe-5a0c-ad85-20a5f3185b63"
 HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
@@ -11,7 +12,9 @@ QuadraticModels = "f468eda6-eac5-11e8-05a5-ff9e497bcd19"
 
 [compat]
 CodecBzip2 = "0.8.5"
+DelimitedFiles = "1.9.1"
 GZip = "0.6.2"
+HSL = "0.5.1"
 MadNLP = "0.8.7"
 MadNLPHSL = "0.6.0"
 MadQP = "0.1.0"
