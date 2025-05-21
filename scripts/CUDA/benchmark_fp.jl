@@ -23,7 +23,7 @@ function run_benchmark(src, probs)
         # Instantiate QuadraticModel
         qp = QuadraticModel(qpdat)
         new_qp = presolve_qp(qp)
-        scaled_qp, Dr, Dc = scale_qp(new_qp)
+        scaled_qp = scale_qp(new_qp)
 
         # Transfer data to the GPU
         qp_gpu = transfer_to_gpu(scaled_qp)
@@ -42,8 +42,6 @@ function run_benchmark(src, probs)
                 step_rule=MadQP.AdaptiveStep(0.995),
                 regularization=MadQP.FixedRegularization(1e-10, -1e-10),
                 rethrow_error=true,
-                richardson_max_iter=0,
-                richardson_tol=Inf,
             )
             res = MadQP.solve!(solver)
             results[k, 1] = Int(res.status)
