@@ -5,7 +5,6 @@ mutable struct MPCSolver{
     KKTSystem <: MadNLP.AbstractKKTSystem{T},
     Model <: NLPModels.AbstractNLPModel{T,VT},
     CB <: MadNLP.AbstractCallback{T},
-    Iterator <: MadNLP.AbstractIterator{T},
 } <: MadNLP.AbstractMadNLPSolver{T}
     nlp::Model
     class::AbstractConicProblem
@@ -59,8 +58,6 @@ mutable struct MPCSolver{
     zu_r::MadNLP.SubVector{T,VT,VI}
     dx_lr::MadNLP.SubVector{T,VT,VI}
     dx_ur::MadNLP.SubVector{T,VT,VI}
-
-    iterator::Iterator
 
     inf_pr::T
     inf_du::T
@@ -123,9 +120,6 @@ function MPCSolver(nlp::NLPModels.AbstractNLPModel{T,VT}; kwargs...) where {T, V
         opt_linear_solver=options.linear_solver,
     )
 
-    MadNLP.@trace(logger,"Initializing iterative solver.")
-    iterator = ipm_opt.iterator(kkt; cnt = cnt, logger = logger, opt = options.iterative_refinement)
-
     x = MadNLP.PrimalVector(VT, nx, ns, ind_lb, ind_ub)
     xl = MadNLP.PrimalVector(VT, nx, ns, ind_lb, ind_ub)
     xu = MadNLP.PrimalVector(VT, nx, ns, ind_lb, ind_ub)
@@ -176,7 +170,6 @@ function MPCSolver(nlp::NLPModels.AbstractNLPModel{T,VT}; kwargs...) where {T, V
         ind_cons.ind_ineq, ind_cons.ind_fixed, ind_cons.ind_llb, ind_cons.ind_uub,
         ind_cons.ind_lb, ind_cons.ind_ub,
         x_lr, x_ur, xl_r, xu_r, zl_r, zu_r, dx_lr, dx_ur,
-        iterator,
         zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T),
         MadNLP.INITIAL,
     )

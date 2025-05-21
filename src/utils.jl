@@ -70,7 +70,6 @@ end
     tol::Float64
     kkt_system::Type
     linear_solver::Type
-    iterator::Type = MadNLP.RichardsonIterator
     # Output options
     output_file::String = ""
     print_level::MadNLP.LogLevels = MadNLP.INFO
@@ -98,6 +97,9 @@ end
     mu_min::Float64 = 1e-11
     mu_superlinear_decrease_power::Float64 = 1.5
     tau_min::Float64 = 0.99
+    # Linear solve
+    tol_linear_solve::Float64 = 1e-8
+    check_residual::Bool = false
 end
 
 # smart option presets
@@ -122,10 +124,7 @@ function load_options(nlp; options...)
     linear_solver_options = MadNLP.set_options!(opt_ipm, options)
     # Initiate linear-solver options
     opt_linear_solver = MadNLP.default_options(opt_ipm.linear_solver)
-    iterator_options = MadNLP.set_options!(opt_linear_solver, linear_solver_options)
-    # Initiate iterator options
-    opt_iterator = MadNLP.default_options(opt_ipm.iterator, opt_ipm.tol)
-    remaining_options = MadNLP.set_options!(opt_iterator, iterator_options)
+    remaining_options = MadNLP.set_options!(opt_linear_solver, linear_solver_options)
 
     # Initiate logger
     logger = MadNLP.MadNLPLogger(
@@ -142,7 +141,6 @@ function load_options(nlp; options...)
     return (
         interior_point=opt_ipm,
         linear_solver=opt_linear_solver,
-        iterative_refinement=opt_iterator,
         logger=logger,
     )
 end
@@ -191,3 +189,4 @@ function coo_to_csr(
 
     return (Bp, Bj, Bx)
 end
+
