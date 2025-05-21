@@ -20,7 +20,7 @@ function run_benchmark(src, probs)
         end
         qp = QuadraticModel(qpdat)
         new_qp = presolve_qp(qp)
-        scaled_qp, Dr, Dc = scale_qp(new_qp)
+        scaled_qp = scale_qp(new_qp)
 
         try
             solver = MadQP.MPCSolver(
