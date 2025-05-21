@@ -37,8 +37,6 @@ for operator in (false, true)
         step_rule=MadQP.AdaptiveStep(0.995),
         regularization=MadQP.FixedRegularization(1e-8, -1e-8),
         rethrow_error=true,
-        richardson_max_iter=0,
-        richardson_tol=Inf,
     )
 
     MadQP.solve!(solver)
