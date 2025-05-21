@@ -30,8 +30,6 @@ function run_benchmark(src, probs)
                 print_level=MadNLP.INFO,
                 max_ncorr=3,
                 bound_push=1.0,
-                richardson_max_iter=0,
-                richardson_tol=Inf,
             )
             res = MadQP.solve!(solver)
             results[k, 1] = Int(res.status)
