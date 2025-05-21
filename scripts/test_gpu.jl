@@ -20,12 +20,15 @@ qpdat = import_mps(path_sif)
 qp = QuadraticModel(qpdat)
 new_qp = presolve_qp(qp)
 scaled_qp = scale_qp(new_qp)
+standard_qp = standard_form_qp(scaled_qp)
 
 # Transfer data to the GPU
 for operator in (false, true)
+
+    qp_gpu = transfer_to_gpu(standard_qp; operator)
+
     for (kkt, algo) in (# (MadQP.NormalKKTSystem, MadNLP.CHOLESKY),
                         (MadNLP.SparseKKTSystem, MadNLP.LDL),)
-        qp_gpu = transfer_to_gpu(scaled_qp; operator)
 
         solver = MadQP.MPCSolver(
             qp_gpu;

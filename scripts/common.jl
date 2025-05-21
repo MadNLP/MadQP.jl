@@ -123,26 +123,30 @@ end
 """
     standard_form_qp(qp::QuadraticModel)
 
-Reformulate QP in standard form.
+Reformulate a QP into a (partially) standard form.
 
-The function takes as input a generic QP instance
+The function takes as input a generic QP of the form:
 ```
-min_x  c' x
-  s.t. xl <= x <= xu
-       bl <= A x <= bu
+min_{x}  c'x
+  s.t.   xl <= x <= xu
+         bl <= Ax <= bu
 
 ```
-and reformulates it in standard form by introducing two slack vectors
-`s` and `w = (wx, ws)`. The function returns the new problem:
+and reformulates it by:
+- introducing slack variables `s` such that `s = Ax` for inequality constraints,
+- rewriting upper bounds (on `x` and `s`) as equality constraints using nonnegative slack variables `w = (wx, ws)`.
+
+The resulting problem is equivalent to:
 ```
-min_{x,s,w}  c' x
-  s.t.       xl <= x
+min_{x,s,w}  c'x
+  s.t.       s = Ax
+             x + wx = xu  (for upper-bounded x)
+             s + ws = bu  (for upper-bounded Ax)
+             xl <= x
              bl <= s
-             0  <= w
-             x + wx = xu
-             s + ws = bu
+             0 <= w
 ```
-
+Equality constraints are preserved as-is.
 """
 function standard_form_qp(qp::QuadraticModel)
     n = NLPModels.get_nvar(qp)
@@ -277,4 +281,3 @@ function standard_form_qp(qp::QuadraticModel)
         data,
     )
 end
-
