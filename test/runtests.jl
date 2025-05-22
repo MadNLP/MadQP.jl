@@ -2,6 +2,7 @@ using Test
 using MadNLP
 using MadQP
 using MadNLPTests
+using QuadraticModels
 
 function _compare_with_nlp(n, m, ind_fixed, ind_eq; max_ncorr=0, atol=1e-5)
     x0 = zeros(n)
@@ -18,6 +19,39 @@ function _compare_with_nlp(n, m, ind_fixed, ind_eq; max_ncorr=0, atol=1e-5)
     @test qp_stats.constraints ≈ nlp_stats.constraints atol=atol
     @test qp_stats.multipliers ≈ nlp_stats.multipliers atol=atol
     return
+end
+
+function simple_lp()
+    c = ones(2)
+    Hrows = Int[]
+    Hcols = Int[]
+    Hvals = Float64[]
+    Arows = [1, 1]
+    Acols = [1, 2]
+    Avals = [1.0; 1.0]
+    c0 = 0.0
+    lvar = [0.0; 0.0]
+    uvar = [Inf; Inf]
+    lcon = [1.0]
+    ucon = [1.0]
+    x0 = ones(2)
+
+    return QuadraticModel(
+        c,
+        Hrows,
+        Hcols,
+        Hvals,
+        Arows = Arows,
+        Acols = Acols,
+        Avals = Avals,
+        lcon = lcon,
+        ucon = ucon,
+        lvar = lvar,
+        uvar = uvar,
+        c0 = c0,
+        x0 = x0,
+        name = "simpleLP",
+    )
 end
 
 @testset "Test with DenseDummyQP" begin
@@ -89,6 +123,51 @@ end
             linear_solver=LDLSolver,
             print_level=MadNLP.ERROR,
             regularization=reg,
+            rethrow_error=true,
+        )
+        sol = MadQP.solve!(solver)
+
+        @test sol.status == MadNLP.SOLVE_SUCCEEDED
+        @test sol.objective ≈ sol_ref.objective atol=1e-6
+        @test sol.solution ≈ sol_ref.solution atol=1e-6
+        @test sol.constraints ≈ sol_ref.constraints atol=1e-6
+        @test sol.multipliers ≈ sol_ref.multipliers atol=1e-6
+    end
+
+end
+
+@testset "Test with simple LP" begin
+    qp = simple_lp()
+
+    qp_solver = MadQP.MPCSolver(
+        qp;
+        print_level=MadNLP.ERROR,
+        regularization=MadQP.NoRegularization(),
+    )
+    sol_ref = MadQP.solve!(qp_solver)
+
+    @testset "NormalKKTSystem implementation" begin
+        # Test
+        linear_solver = MadNLP.LapackCPUSolver
+        ind_cons = MadNLP.get_index_constraints(qp)
+        cb = MadNLP.create_callback(
+            MadNLP.SparseCallback, qp,
+        )
+        kkt = MadNLP.create_kkt_system(
+            MadQP.NormalKKTSystem,
+            cb,
+            ind_cons,
+            linear_solver;
+        )
+        MadNLPTests.test_kkt_system(kkt, cb)
+    end
+
+    @testset "Solve LP with NormalKKTSystem" begin
+        solver = MadQP.MPCSolver(
+            qp;
+            linear_solver=LDLSolver,
+            print_level=MadNLP.ERROR,
+            kkt_system=MadQP.NormalKKTSystem,
             rethrow_error=true,
         )
         sol = MadQP.solve!(solver)

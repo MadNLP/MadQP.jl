@@ -190,3 +190,109 @@ function coo_to_csr(
     return (Bp, Bj, Bx)
 end
 
+function coo_to_csr(A::MadNLP.SparseMatrixCOO)
+    return coo_to_csr(
+        A.m, A.n, A.I, A.J, A.V,
+    )
+end
+
+function build_normal_system(
+    n_rows,
+    n_cols,
+    Jtp::AbstractVector{Ti},
+    Jtj::AbstractVector{Ti},
+) where {Ti}
+    Cp = zeros(Ti, n_rows + 1)
+    xb = zeros(UInt8, n_cols)
+
+    # Count nonzeros per rows
+    nnz = 0
+    @inbounds for i in 1:n_rows
+        for c in Jtp[i]:Jtp[i+1]-1
+            j = Jtj[c]
+            xb[j] = UInt8(1)
+        end
+        # JᵀJ is symmetric, store only lower triangular part
+        for j in i:n_rows
+            for c in Jtp[j]:Jtp[j+1]-1
+                k = Jtj[c]
+                if xb[k] == 1
+                    nnz += 1
+                    Cp[i] += 1
+                    break
+                end
+            end
+        end
+        # Reset to 0
+        for c in Jtp[i]:Jtp[i+1]-1
+            xb[Jtj[c]] = UInt8(0)
+        end
+    end
+    # cumsum the nnz per row to get Bp
+    cumsum = 1
+    @inbounds for i in 1:n_rows
+        tmp = Cp[i]
+        Cp[i] = cumsum
+        cumsum += tmp
+    end
+    Cp[n_rows+1] = nnz + 1
+
+    Cj = zeros(Ti, nnz)
+    cnt = 0
+    @inbounds for i in 1:n_rows
+        for c in Jtp[i]:Jtp[i+1]-1
+            j = Jtj[c]
+            xb[j] = UInt8(1)
+        end
+        # JᵀJ is symmetric, store only lower triangular part
+        for j in i:n_rows
+            for c in Jtp[j]:Jtp[j+1]-1
+                k = Jtj[c]
+                if xb[k] == 1
+                    cnt += 1
+                    Cj[cnt] = j
+                    break
+                end
+            end
+        end
+        for c in Jtp[i]:Jtp[i+1]-1
+            xb[Jtj[c]] = UInt8(0)
+        end
+    end
+
+    return (Cp, Cj)
+end
+
+function assemble_normal_system!(
+    n_rows,
+    n_cols,
+    Jtp::AbstractVector{Ti},
+    Jtj::AbstractVector{Ti},
+    Jtx::AbstractVector{Tv},
+    Cp::AbstractVector{Ti},
+    Cj::AbstractVector{Ti},
+    Cx::AbstractVector{Tv},
+    Dx::AbstractVector{Tv},
+) where {Ti, Tv}
+    buffer = zeros(Tv, n_cols)
+    @inbounds for i in 1:n_rows
+        # Read row i
+        for c in Jtp[i]:Jtp[i+1]-1
+            j = Jtj[c]
+            buffer[j] = Jtx[c] * Dx[j]
+        end
+        for c in Cp[i]:Cp[i+1]-1
+            j = Cj[c]
+            Cx[c] = Tv(0)
+            for d in Jtp[j]:Jtp[j+1]-1
+                k = Jtj[d]
+                Cx[c] += buffer[k] * Jtx[d]
+            end
+        end
+        # Reset buffer
+        for c in Jtp[i]:Jtp[i+1]-1
+            j = Jtj[c]
+            buffer[j] = Tv(0)
+        end
+    end
+end

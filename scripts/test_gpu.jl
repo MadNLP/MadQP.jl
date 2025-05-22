@@ -23,21 +23,25 @@ scaled_qp = scale_qp(new_qp)
 
 # Transfer data to the GPU
 for operator in (false, true)
-    qp_gpu = transfer_to_gpu(scaled_qp; operator)
+    for (kkt, algo) in (# (MadQP.NormalKKTSystem, MadNLP.CHOLESKY),
+                        (MadNLP.SparseKKTSystem, MadNLP.LDL),)
+        qp_gpu = transfer_to_gpu(scaled_qp; operator)
 
-    solver = MadQP.MPCSolver(
-        qp_gpu;
-        max_iter=100,
-        tol=1e-7,
-        linear_solver=MadNLPGPU.CUDSSSolver,
-        cudss_algorithm=MadNLP.LDL,
-        print_level=MadNLP.INFO,
-        scaling=true,
-        max_ncorr=0,
-        step_rule=MadQP.AdaptiveStep(0.995),
-        regularization=MadQP.FixedRegularization(1e-8, -1e-8),
-        rethrow_error=true,
-    )
+        solver = MadQP.MPCSolver(
+            qp_gpu;
+            max_iter=100,
+            tol=1e-7,
+            kkt_system=kkt,
+            linear_solver=MadNLPGPU.CUDSSSolver,
+            cudss_algorithm=algo,
+            print_level=MadNLP.INFO,
+            scaling=true,
+            max_ncorr=0,
+            step_rule=MadQP.AdaptiveStep(0.995),
+            regularization=MadQP.FixedRegularization(1e-8, -1e-8),
+            rethrow_error=true,
+        )
 
-    MadQP.solve!(solver)
+        MadQP.solve!(solver)
+    end
 end
