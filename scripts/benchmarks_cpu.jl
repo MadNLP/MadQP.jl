@@ -6,42 +6,52 @@ using QPSReader
 using QuadraticModels
 
 include("common.jl")
+include("excluded_problems.jl")
 
-function run_benchmark(src, probs; reformulate::Bool=false)
+function run_benchmark(src, probs; reformulate::Bool=false, test_reader::Bool=false)
     nprobs = length(probs)
     results = zeros(nprobs, 5)
     for (k, prob) in enumerate(probs)
-        @info prob
+        @info "$prob -- $k / $nprobs"
         qpdat = try
             import_mps(joinpath(src, prob))
         catch e
             @warn "Failed to import $prob: $e"
             continue
         end
-        qp = QuadraticModel(qpdat)
-        presolved_qp = presolve_qp(qp)
-        scaled_qp = scale_qp(presolved_qp)
-        qp_cpu = reformulate ? standard_form_qp(scaled_qp) : scaled_qp
+        @info "The problem $prob was imported."
 
-        try
-            solver = MadQP.MPCSolver(
-                qp_cpu;
-                max_iter=300,
-                linear_solver=Ma27Solver,
-                print_level=MadNLP.INFO,
-                max_ncorr=3,
-                bound_push=1.0,
-            )
-            res = MadQP.solve!(solver)
-            results[k, 1] = Int(res.status)
-            results[k, 2] = res.iter
-            results[k, 3] = res.objective
-            results[k, 4] = res.counters.total_time
-            results[k, 5] = res.counters.linear_solver_time
-        catch ex
-            results[k, 4] = -1
-            @warn "Failed to solve $prob: $ex"
-            continue
+        if !test_reader
+            qp = QuadraticModel(qpdat)
+            presolved_qp, flag = presolve_qp(qp)
+            !flag && continue  # problem already solved, unbounded or infeasible
+            scaled_qp = scale_qp(presolved_qp)
+            qp_cpu = reformulate ? standard_form_qp(scaled_qp) : scaled_qp
+
+            try
+                solver = MadQP.MPCSolver(
+                    qp_cpu;
+                    max_iter=300,
+                    linear_solver=Ma27Solver,
+                    print_level=MadNLP.INFO,
+                    max_ncorr=3,
+                    bound_push=1.0,
+                    scaling=true,
+                    step_rule=MadQP.AdaptiveStep(0.995),
+                    regularization=MadQP.FixedRegularization(1e-8, -1e-8),
+                    rethrow_error=true,
+                )
+                res = MadQP.solve!(solver)
+                results[k, 1] = Int(res.status)
+                results[k, 2] = res.iter
+                results[k, 3] = res.objective
+                results[k, 4] = res.counters.total_time
+                results[k, 5] = res.counters.linear_solver_time
+            catch ex
+                results[k, 4] = -1
+                @warn "Failed to solve $prob: $ex"
+                continue
+            end
         end
     end
     return results
@@ -49,12 +59,13 @@ end
 
 src = fetch_netlib()
 name_results = "benchmark-netlib.txt"
+sif_files = filter(x -> endswith(x, ".SIF") && !(x in excluded_netlib), readdir(src))
 
 # src = fetch_mm()
 # name_results = "benchmark-mm.txt"
+# sif_files = filter(x -> endswith(x, ".SIF") && !(x in excluded_mm), readdir(src))
 
-sif_files = filter(x -> endswith(x, ".SIF"), readdir(src))
-
-reformulate = true
-results = run_benchmark(src, sif_files; reformulate)
+reformulate = false
+test_reader = false
+results = run_benchmark(src, sif_files; reformulate, test_reader)
 writedlm(name_results, [sif_files results])
