@@ -4,11 +4,11 @@ using MadQP
 using QPSReader
 using QuadraticModels
 
-include(joinpath("..", "common.jl"))
+include("common.jl")
 include("cuda_wrapper.jl")
 include("qp_gpu.jl")
 
-function run_benchmark(src, probs)
+function run_benchmark(src, probs; reformulate::Bool=false)
     nprobs = length(probs)
     results = zeros(nprobs, 5)
     for (k, prob) in enumerate(probs)
@@ -22,11 +22,12 @@ function run_benchmark(src, probs)
 
         # Instantiate QuadraticModel
         qp = QuadraticModel(qpdat)
-        new_qp = presolve_qp(qp)
-        scaled_qp = scale_qp(new_qp)
+        presolved_qp = presolve_qp(qp)
+        scaled_qp = scale_qp(presolved_qp)
+        qp_cpu = reformulate ? standard_form_qp(scaled_qp) : scaled_qp
 
         # Transfer data to the GPU
-        qp_gpu = transfer_to_gpu(scaled_qp)
+        qp_gpu = transfer_to_gpu(qp_cpu)
 
         try
             solver = MadQP.MPCSolver(
@@ -40,7 +41,7 @@ function run_benchmark(src, probs)
                 bound_push=1.0,
                 scaling=true,
                 step_rule=MadQP.AdaptiveStep(0.995),
-                regularization=MadQP.FixedRegularization(1e-10, -1e-10),
+                regularization=MadQP.FixedRegularization(1e-8, -1e-8),
                 rethrow_error=true,
             )
             res = MadQP.solve!(solver)
@@ -58,7 +59,27 @@ function run_benchmark(src, probs)
     return results
 end
 
-src = "/home/amontoison/Argonne/large-scale-LPs"
-mps_files = filter(x -> endswith(x, ".mps.gz") || endswith(x, ".mps"), readdir(src))
+# src = fetch_netlib()
+# mps_files = filter(x -> endswith(x, ".SIF"), readdir(src))
+# name_results = "benchmark-netlib-gpu.txt"
+
+# src = fetch_mm()
+# mps_files = filter(x -> endswith(x, ".SIF"), readdir(src))
+# name_results = "benchmark-mm-gpu.txt"
+
+src = "/home/amontoison/Argonne/miplib"
+mps_files = filter(x -> endswith(x, ".mps.gz") && (x != "Test3.mps.gz") && (x != "gasprod1-1.mps.gz"), readdir(src))
+name_results = "benchmark-miplib-gpu.txt"
+
+# src = "/home/amontoison/Argonne/large-scale-LPs"
+# mps_files = filter(x -> endswith(x, ".mps.gz") || endswith(x, ".mps"), readdir(src))
+# name_results = "benchmark-fp-gpu.txt"
+
+# variant = "medium"
+# src = "/home/amontoison/Argonne/LP_instances/$variant-problem-instances"
+# mps_files = filter(x -> endswith(x, ".mps.gz"), readdir(src))
+# name_results = "benchmark-$variant-pdlp-gpu.txt"
+
+reformulate = false
 results = run_benchmark(src, mps_files)
-writedlm("benchmark-fp-gpu.txt", [mps_files results])
+writedlm(name_results, [mps_files results])

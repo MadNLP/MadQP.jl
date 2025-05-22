@@ -7,7 +7,7 @@ using QuadraticModels
 
 include("common.jl")
 
-function run_benchmark(src, probs)
+function run_benchmark(src, probs; reformulate::Bool=false)
     nprobs = length(probs)
     results = zeros(nprobs, 5)
     for (k, prob) in enumerate(probs)
@@ -19,12 +19,13 @@ function run_benchmark(src, probs)
             continue
         end
         qp = QuadraticModel(qpdat)
-        new_qp = presolve_qp(qp)
-        scaled_qp = scale_qp(new_qp)
+        presolved_qp = presolve_qp(qp)
+        scaled_qp = scale_qp(presolved_qp)
+        qp_cpu = reformulate ? standard_form_qp(scaled_qp) : scaled_qp
 
         try
             solver = MadQP.MPCSolver(
-                scaled_qp;
+                qp_cpu;
                 max_iter=300,
                 linear_solver=Ma27Solver,
                 print_level=MadNLP.INFO,
@@ -47,6 +48,13 @@ function run_benchmark(src, probs)
 end
 
 src = fetch_netlib()
+name_results = "benchmark-netlib.txt"
+
+# src = fetch_mm()
+# name_results = "benchmark-mm.txt"
+
 sif_files = filter(x -> endswith(x, ".SIF"), readdir(src))
-results = run_benchmark(src, sif_files)
-writedlm("benchmark-netlib.txt", [sif_files results])
+
+reformulate = true
+results = run_benchmark(src, sif_files; reformulate)
+writedlm(name_results, [sif_files results])
