@@ -1,4 +1,3 @@
-
 struct NormalKKTSystem{T, VT, MT, VI, VI32, LS} <: MadNLP.AbstractKKTSystem{T, VT, MT, MadNLP.ExactHessian{T, VT}}
     # Augmented system
     aug_com::MT
