@@ -2,7 +2,7 @@ using LinearAlgebra
 using MadNLP
 using MadQP
 
-include(joinpath("..", "common.jl"))
+include("common.jl")
 include("cuda_wrapper.jl")
 include("qp_gpu.jl")
 

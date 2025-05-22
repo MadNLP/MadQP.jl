@@ -49,8 +49,8 @@ jobs:
         shell: julia --color=yes {0}
         run: |
           using Pkg
-          Pkg.activate("./scripts/CUDA")
+          Pkg.activate("./scripts")
           Pkg.develop(path=".")
           path_HSL_jll = "/scratch/github-actions/actions_runner_hsl/HSL_jll.jl.v" * ENV["HSL_VERSION"]
           Pkg.develop(path=path_HSL_jll)
-          include("/scratch/github-actions/actions_runner_madqp/_work/MadQP.jl/MadQP.jl/scripts/CUDA/test_gpu.jl")
+          include("/scratch/github-actions/actions_runner_madqp/_work/MadQP.jl/MadQP.jl/scripts/test_gpu.jl")
