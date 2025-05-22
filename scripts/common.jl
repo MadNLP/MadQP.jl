@@ -99,25 +99,28 @@ function scale_qp(qp::QuadraticModel)
 end
 
 """
-    presolve_qp(qp::QuadraticModel)
+    presolved_qp, flag = presolve_qp(qp::QuadraticModel)
 
 Run basic presolve routines implemented in `QuadraticModels.presolve` and return
-a new QuadraticModel.
-
+a new QuadraticModel if flag is `true`.
+If `flag` is `false`, the initial `qp` is returned.
 """
 function presolve_qp(qp::QuadraticModel)
     # Use routine implemented in QuadraticModels
     res = presolve(qp)
 
     qp_presolved = res.solver_specific[:presolvedQM]
-
-    new_qp = QuadraticModel(
-        qp_presolved.meta,
-        qp_presolved.counters,
-        qp_presolved.data,
-    )
-
-    return new_qp
+    if qp_presolved != nothing
+        new_qp = QuadraticModel(
+            qp_presolved.meta,
+            qp_presolved.counters,
+            qp_presolved.data,
+        )
+        return new_qp, true
+    else
+        # unbounded, infeasible or nvarps == 0
+        return qp, false
+    end
 end
 
 """
@@ -277,4 +280,3 @@ function standard_form_qp(qp::QuadraticModel)
         data,
     )
 end
-

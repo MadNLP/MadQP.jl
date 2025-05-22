@@ -18,7 +18,7 @@ qpdat = import_mps(path_sif)
 
 # Instantiate QuadraticModel
 qp = QuadraticModel(qpdat)
-new_qp = presolve_qp(qp)
+new_qp, flag = presolve_qp(qp)
 scaled_qp = scale_qp(new_qp)
 
 # Transfer data to the GPU
