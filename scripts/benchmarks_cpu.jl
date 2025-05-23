@@ -58,14 +58,18 @@ function run_benchmark(src, probs; reformulate::Bool=false, test_reader::Bool=fa
 end
 
 src = fetch_netlib()
-name_results = "benchmark-netlib.txt"
-sif_files = filter(x -> endswith(x, ".SIF") && !(x in excluded_netlib), readdir(src))
+name_results = "benchmark-netlib-cpu.txt"
+mps_files = filter(x -> endswith(x, ".SIF") && !(x in excluded_netlib), readdir(src))
 
 # src = fetch_mm()
-# name_results = "benchmark-mm.txt"
-# sif_files = filter(x -> endswith(x, ".SIF") && !(x in excluded_mm), readdir(src))
+# name_results = "benchmark-mm-cpu.txt"
+# mps_files = filter(x -> endswith(x, ".SIF") && !(x in excluded_mm), readdir(src))
+
+# src = "/home/amontoison/Argonne/miplib"
+# name_results = "benchmark-miplib-cpu.txt"
+# mps_files = filter(x -> endswith(x, ".mps.gz") && !(x in excluded_miplib), readdir(src))
 
 reformulate = false
 test_reader = false
-results = run_benchmark(src, sif_files; reformulate, test_reader)
-writedlm(name_results, [sif_files results])
+results = run_benchmark(src, mps_files; reformulate, test_reader)
+writedlm(name_results, [mps_files results])

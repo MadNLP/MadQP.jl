@@ -57,7 +57,7 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
             alpha = Ref{T}(one(T))
             beta = Ref{T}(zero(T))
             bool = symmetric && (nnz(A) > 0)
-            mat = bool ? A + A' - Diagonal(A) : A
+            mat = bool ? tril(A, -1) + A' : A
             descA = CUSPARSE.CuSparseMatrixDescriptor(mat, 'O')
             descX = CUSPARSE.CuDenseVectorDescriptor(T, n)
             descY = CUSPARSE.CuDenseVectorDescriptor(T, m)
