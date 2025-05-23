@@ -10,7 +10,7 @@ include("excluded_problems.jl")
 
 function run_benchmark(src, probs; reformulate::Bool=false, test_reader::Bool=false)
     nprobs = length(probs)
-    results = zeros(nprobs, 5)
+    results = zeros(nprobs, 9)
     for (k, prob) in enumerate(probs)
         @info "$prob -- $k / $nprobs"
         qpdat = try
