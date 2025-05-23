@@ -51,11 +51,12 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
                                      (:(CuSparseMatrixCSC{T}), :BlasFloat),
                                      (:(CuSparseMatrixCOO{T}), :BlasFloat))
     @eval begin
-        function MadQPOperator(A::$SparseMatrixType; transa::Char='N') where T <: $BlasType
+        function MadQPOperator(A::$SparseMatrixType; transa::Char='N', symmetric::Bool=false) where T <: $BlasType
             m, n = size(A)
             alpha = Ref{T}(one(T))
             beta = Ref{T}(zero(T))
-            descA = CUSPARSE.CuSparseMatrixDescriptor(A, 'O')
+            mat = symmetric ? A + A' - Diagonal(A) : A
+            descA = CUSPARSE.CuSparseMatrixDescriptor(mat, 'O')
             descX = CUSPARSE.CuDenseVectorDescriptor(T, n)
             descY = CUSPARSE.CuDenseVectorDescriptor(T, m)
             algo = CUSPARSE.CUSPARSE_SPMV_ALG_DEFAULT
