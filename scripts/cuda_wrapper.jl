@@ -37,6 +37,7 @@ mutable struct MadQPOperator{T,M} <: AbstractMatrix{T}
     type::Type{T}
     m::Int
     n::Int
+    mat::M
     A::M
     transa::Char
     descA::CUSPARSE.CuSparseMatrixDescriptor
@@ -67,7 +68,7 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
                 CUSPARSE.cusparseSpMV_preprocess(CUSPARSE.handle(), transa, alpha, descA, descX, beta, descY, T, algo, buffer)
             end
             M = typeof(A)
-            return MadQPOperator{T,M}(T, m, n, A, transa, descA, buffer)
+            return MadQPOperator{T,M}(T, m, n, mat, A, transa, descA, buffer)
         end
     end
 end
