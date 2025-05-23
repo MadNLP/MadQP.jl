@@ -66,7 +66,7 @@ function scale_qp(qp::QuadraticModel)
 
     Hs = copy(qp.data.H)
     As = copy(qp.data.A)
-    _scale_coo!(Hs, Dr, Dc)
+    _scale_coo!(Hs, Dc, Dc)
     _scale_coo!(As, Dr, Dc)
 
     data = QuadraticModels.QPData(
