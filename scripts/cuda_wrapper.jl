@@ -33,12 +33,12 @@ function MadNLP.compress_hessian!(
     MadNLP.transfer!(kkt.hess_com, kkt.hess_raw, kkt.hess_csc_map)
 end
 
-mutable struct MadQPOperator{T,M} <: AbstractMatrix{T}
+mutable struct MadQPOperator{T,M,M2} <: AbstractMatrix{T}
     type::Type{T}
     m::Int
     n::Int
-    mat::M
     A::M
+    mat::M2
     transa::Char
     descA::CUSPARSE.CuSparseMatrixDescriptor
     buffer::CuVector{UInt8}
@@ -57,13 +57,7 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
             alpha = Ref{T}(one(T))
             beta = Ref{T}(zero(T))
             bool = symmetric && (nnz(A) > 0)
-            if bool
-                # TODO: Use geam + custom kernel
-                A_cpu = SparseMatrixCSC(A)
-                mat = $SparseMatrixType(A_cpu + A_cpu' - Diagonal(A_cpu))
-            else
-                mat = A
-            end
+            mat = bool ? tril(A, -1) + A' : A
             descA = CUSPARSE.CuSparseMatrixDescriptor(mat, 'O')
             descX = CUSPARSE.CuDenseVectorDescriptor(T, n)
             descY = CUSPARSE.CuDenseVectorDescriptor(T, m)
@@ -75,7 +69,8 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
                 CUSPARSE.cusparseSpMV_preprocess(CUSPARSE.handle(), transa, alpha, descA, descX, beta, descY, T, algo, buffer)
             end
             M = typeof(A)
-            return MadQPOperator{T,M}(T, m, n, mat, A, transa, descA, buffer)
+            M2 = typeof(mat)
+            return MadQPOperator{T,M,M2}(T, m, n, A, mat, transa, descA, buffer)
         end
     end
 end
