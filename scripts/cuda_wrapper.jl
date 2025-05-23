@@ -57,7 +57,13 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
             alpha = Ref{T}(one(T))
             beta = Ref{T}(zero(T))
             bool = symmetric && (nnz(A) > 0)
-            mat = bool ? tril(A, -1) + A' : A
+            if bool
+                # TODO: Use geam + custom kernel
+                A_cpu = SparseMatrixCSC(A)
+                mat = $SparseMatrixType(A_cpu + A_cpu' - Diagonal(A_cpu))
+            else
+                mat = A
+            end
             descA = CUSPARSE.CuSparseMatrixDescriptor(mat, 'O')
             descX = CUSPARSE.CuDenseVectorDescriptor(T, n)
             descY = CUSPARSE.CuDenseVectorDescriptor(T, m)
