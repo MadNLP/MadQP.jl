@@ -140,31 +140,34 @@ function MadNLP._build_scale_augmented_system_coo!(dest, src, scaling::CuArray, 
     KernelAbstractions.synchronize(backend)
 end
 
-@kernel function assemble_normal_system_kernel!(@Const(n_rows), @Const(n_cols), @Const(Jtp), @Const(Jtj), @Const(Jtx),
-                                                @Const(Cp), @Const(Cj), Cx, @Const(Dx))
+@kernel function assemble_normal_system_kernel!(@Const(n_rows), @Const(Jtp), @Const(Jtj), @Const(Jtx),
+                                                @Const(Cp), @Const(Cj), Cx, @Const(Dx), @Const(Tv))
     i = @index(Global, Linear)
-    Tv = eltype(Cx)
 
-    # Thread-local buffer
-    buffer = @localmem Tv n_cols
-    for k = 1:n_cols
-        buffer[k] = 0
-    end
-
-    # Step 1: buffer[j] = J[i,j] * Dx[j]
-    for c in Jtp[i]:Jtp[i+1]-1
-        j = Jtj[c]
-        buffer[j] = Jtx[c] * Dx[j]
-    end
-
-    # Step 2: compute dot-products for row i of JᵀDJ
     for c in Cp[i]:Cp[i+1]-1
         j = Cj[c]
         acc = zero(Tv)
-        for d in Jtp[j]:Jtp[j+1]-1
-            k = Jtj[d]
-            acc += buffer[k] * Jtx[d]
+
+        p1 = Jtp[i]
+        p2 = Jtp[j]
+        p1_end = Jtp[i+1] - 1
+        p2_end = Jtp[j+1] - 1
+
+        while p1 <= p1_end && p2 <= p2_end
+            k1 = Jtj[p1]
+            k2 = Jtj[p2]
+
+            if k1 == k2
+                acc += Jtx[p1] * Dx[k1] * Jtx[p2]
+                p1 += 1
+                p2 += 1
+            elseif k1 < k2
+                p1 += 1
+            else
+                p2 += 1
+            end
         end
+
         Cx[c] = acc
     end
     nothing
@@ -183,7 +186,7 @@ function MadQP.assemble_normal_system!(
 ) where {Ti, Tv}
     backend = CUDABackend()
     kernel! = assemble_normal_system_kernel!(backend)
-    kernel!(n_rows, n_cols, Jtp, Jtj, Jtx, Cp, Cj, Cx, Dx; ndrange = n_rows)
+    kernel!(n_rows, n_cols, Jtp, Jtj, Jtx, Cp, Cj, Cx, Dx, Tv; ndrange = n_rows)
     KernelAbstractions.synchronize(backend)
 end
 
