@@ -239,4 +239,4 @@ function MadQP.build_normal_system(
     return (Cp, Cj)
 end
 
-MadQP.sparse_csc_format(::CuArray) = CuSparseMatrixCSC
+MadQP.sparse_csc_format(::Type{CuArray}) = CuSparseMatrixCSC
