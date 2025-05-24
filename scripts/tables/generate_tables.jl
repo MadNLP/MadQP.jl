@@ -2,13 +2,14 @@ using DelimitedFiles
 using DataFrames
 using SolverBenchmark
 
-results_cpu = "benchmark-netlib-cpu.txt"
-results_gpu = "benchmark-netlib-gpu.txt"
+collection = "benchmark-netlib"
+results_cpu = "$collection-cpu.txt"
+results_gpu = "$collection-gpu.txt"
 verbose = false
 
 results_dir = @__DIR__
 tex_dir = joinpath(@__DIR__, "tex")
-path_tex = joinpath(@__DIR__, "tex", "benchmark-netlib.tex")
+path_tex = joinpath(@__DIR__, "tex", "$collection.tex")
 
 # Create the folder "tex" if needed
 isdir(tex_dir) || mkdir(tex_dir)
