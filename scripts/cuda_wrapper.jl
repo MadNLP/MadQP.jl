@@ -21,8 +21,9 @@ function MadNLP.transfer!(
 ) where {Tv}
     fill!(nonzeros(dest), zero(Tv))
     if length(map) > 0
-        _transfer_to_map!(CUDABackend())(nonzeros(dest), map, src.V; ndrange=length(map))
-        KernelAbstractions.synchronize(CUDABackend())
+        backend = CUDABackend()
+        _transfer_to_map!(backend)(nonzeros(dest), map, src.V; ndrange=length(map))
+        KernelAbstractions.synchronize(backend)
     end
     return
 end
@@ -136,6 +137,7 @@ function MadNLP._build_scale_augmented_system_coo!(dest, src, scaling::CuArray, 
     kernel! = _scale_augmented_system_coo_kernel!(backend)
     N = nnz(src)
     kernel!(dest.V, src.I, src.J, src.V, scaling, n, m; ndrange = N)
+    KernelAbstractions.synchronize(backend)
 end
 
 @kernel function assemble_normal_system_kernel!(@Const(n_rows), @Const(n_cols), @Const(Jtp), @Const(Jtj), @Const(Jtx),
@@ -182,6 +184,7 @@ function MadQP.assemble_normal_system!(
     backend = CUDABackend()
     kernel! = assemble_normal_system_kernel!(backend)
     kernel!(n_rows, n_cols, Jtp, Jtj, Jtx, Cp, Cj, Cx, Dx; ndrange = n_rows)
+    KernelAbstractions.synchronize(backend)
 end
 
 @kernel function count_normal_nnz!(Cp, @Const(Jtp), @Const(Jtj), @Const(n_rows), @Const(n_cols))
@@ -250,6 +253,7 @@ function MadQP.build_normal_system(
     Cp = CUDA.ones(Ti, n_rows + 1)
     kernel1! = count_normal_nnz!(backend)
     kernel1!(Cp, Jtp, Jtj, n_rows, n_cols; ndrange = n_rows)
+    KernelAbstractions.synchronize(backend)
 
     Cp = cumsum(Cp)
     nnz_JtJ = CUDA.@allowscalar (Cp[end] - 1)
@@ -257,6 +261,7 @@ function MadQP.build_normal_system(
 
     kernel2! = fill_normal_indices!(backend)
     kernel2!(Cj, Cp, Jtp, Jtj, n_rows, n_cols; ndrange = n_rows)
+    KernelAbstractions.synchronize(backend)
     return (Cp, Cj)
 end
 
