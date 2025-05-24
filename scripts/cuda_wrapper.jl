@@ -238,3 +238,5 @@ function MadQP.build_normal_system(
     kernel2!(Cj, Cp, Jtp, Jtj, n_rows, n_cols; ndrange = n_rows)
     return (Cp, Cj)
 end
+
+MadQP.sparse_csc_format(::CuArray) = CuSparseMatrixCSC

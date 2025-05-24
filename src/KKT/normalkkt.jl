@@ -88,13 +88,14 @@ function MadNLP.create_kkt_system(
     A_csr_map = convert.(Int, Ax)
 
     # Store transposed matrix in CSC format
-    AT = MT(ntot, m, Ap, Aj, Ax)
+    CSC = sparse_csc_format(VT)
+    AT = CSC(ntot, m, Ap, Aj, Ax)
 
     # Assemble normal KKT system in CSR format
     AAp, AAj = build_normal_system(m, ntot, Ap, Aj)
     AAx = VT(undef, length(AAj))
 
-    aug_com = MT(m, m, AAp, AAj, AAx)
+    aug_com = CSC(m, m, AAp, AAj, AAx)
 
     _linear_solver = linear_solver(
         aug_com; opt = opt_linear_solver
