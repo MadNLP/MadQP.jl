@@ -96,10 +96,14 @@ function MadNLP.create_kkt_system(
         AAp, AAj = build_normal_system(m, ntot, Ap, Aj)
     else
         # Target sparse gemm in CUSPARSE
-        S = SparseArrays.sparse(transpose(AT)) * AT
-        S = tril(S)
-        AAp = S.colPtr
-        AAj = S.rowVal
+        # S = SparseArrays.sparse(transpose(AT)) * AT
+        # S = tril(S)
+        # AAp = S.colPtr
+        # AAj = S.rowVal
+
+        AAp_h, AAj_h = build_normal_system(m, ntot, Vector(Ap), Vector(Aj))
+        AAp = VT(AAp_h)
+        AAj = VT(AAj_h)
     end
     AAx = VT(undef, length(AAj))
 
