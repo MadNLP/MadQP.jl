@@ -94,7 +94,7 @@ function MadQP.coo_to_csr(
     Ax::CuVector{Tv},
 ) where {Tv, Ti}
     @assert length(Ai) == length(Aj) == length(Ax)
-    B = sparse(Ai, Aj, Ax, m=n_rows, n=n_cols; fmt=:csr)
+    B = sparse(Ai, Aj, Ax, n_rows, n_cols; fmt=:csr)
     return (B.rowPtr, B.colVal, B.nzVal)
 end
 
