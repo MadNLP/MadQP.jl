@@ -76,4 +76,5 @@ mps_files = filter(x -> endswith(x, ".SIF") && !(x in excluded_netlib), readdir(
 reformulate = false
 test_reader = false
 results = run_benchmark(src, mps_files; reformulate, test_reader)
-writedlm(name_results, [mps_files results])
+path_results = joinpath(@__DIR__, "tables", name_results)
+writedlm(path_results, [mps_files results])
