@@ -27,7 +27,7 @@ qp_gpu = transfer_to_gpu(standard_qp)
 
 for (kkt, algo) in ((MadNLP.ScaledSparseKKTSystem, MadNLP.LDL     ),
                     (MadNLP.SparseKKTSystem      , MadNLP.LDL     ),
-                    (MadQP.NormalKKTSystem       , MadNLP.CHOLESKY))
+                    (MadQP.NormalKKTSystem       , MadNLP.LDL))
 
     solver = MadQP.MPCSolver(
         qp_gpu;
