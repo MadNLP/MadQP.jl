@@ -168,7 +168,17 @@ end
     nothing
 end
 
-function MadQP.assemble_normal_system!(n_rows, n_cols, Jtp, Jtj, Jtx, Cp, Cj, Cx, Dx::CuArray)
+function MadQP.assemble_normal_system!(
+    n_rows,
+    n_cols,
+    Jtp::CuArray{Ti},
+    Jtj::CuArray{Ti},
+    Jtx::CuArray{Tv},
+    Cp::CuArray{Ti},
+    Cj::CuArray{Ti},
+    Cx::CuArray{Tv},
+    Dx::CuArray{Tv},
+) where {Ti, Tv}
     backend = CUDABackend()
     kernel! = assemble_normal_system_kernel!(backend)
     kernel!(n_rows, n_cols, Jtp, Jtj, Jtx, Cp, Cj, Cx, Dx; ndrange = n_rows)
@@ -235,7 +245,7 @@ function MadQP.build_normal_system(
     n_cols,
     Jtp::CuVector{Ti},
     Jtj::CuVector{Ti},
-) where Ti
+) where {Ti}
     backend = CUDABackend()
     Cp = CUDA.ones(Ti, n_rows + 1)
     kernel1! = count_normal_nnz!(backend)
