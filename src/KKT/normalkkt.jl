@@ -102,8 +102,9 @@ function MadNLP.create_kkt_system(
         # AAj = S.rowVal
 
         AAp_h, AAj_h = build_normal_system(m, ntot, Vector(Ap), Vector(Aj))
-        AAp = VT(AAp_h)
-        AAj = VT(AAj_h)
+        VII = typeof(Ap)
+        AAp = VII(AAp_h)
+        AAj = VII(AAj_h)
     end
     AAx = VT(undef, length(AAj))
 
