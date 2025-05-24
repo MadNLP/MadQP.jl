@@ -10,7 +10,7 @@ include("excluded_problems.jl")
 
 function run_benchmark(src, probs; reformulate::Bool=false, test_reader::Bool=false)
     nprobs = length(probs)
-    results = zeros(nprobs, 5)
+    results = zeros(nprobs, 9)
     for (k, prob) in enumerate(probs)
         @info "$prob -- $k / $nprobs"
         qpdat = try
@@ -42,13 +42,17 @@ function run_benchmark(src, probs; reformulate::Bool=false, test_reader::Bool=fa
                     rethrow_error=true,
                 )
                 res = MadQP.solve!(solver)
-                results[k, 1] = Int(res.status)
-                results[k, 2] = res.iter
-                results[k, 3] = res.objective
-                results[k, 4] = res.counters.total_time
-                results[k, 5] = res.counters.linear_solver_time
+                results[k, 1] = Int(qp_cpu.meta.nvar)
+                results[k, 2] = Int(qp_cpu.meta.ncon)
+                results[k, 3] = Int(qp_cpu.meta.nnzj)
+                results[k, 4] = Int(qp_cpu.meta.nnzh)
+                results[k, 5] = Int(res.status)
+                results[k, 6] = res.iter
+                results[k, 7] = res.objective
+                results[k, 8] = res.counters.total_time
+                results[k, 9] = res.counters.linear_solver_time
             catch ex
-                results[k, 4] = -1
+                results[k, 8] = -1
                 @warn "Failed to solve $prob: $ex"
                 continue
             end
@@ -72,4 +76,5 @@ mps_files = filter(x -> endswith(x, ".SIF") && !(x in excluded_netlib), readdir(
 reformulate = false
 test_reader = false
 results = run_benchmark(src, mps_files; reformulate, test_reader)
-writedlm(name_results, [mps_files results])
+path_results = joinpath(@__DIR__, "tables", name_results)
+writedlm(path_results, [mps_files results])
