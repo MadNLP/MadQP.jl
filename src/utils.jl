@@ -297,4 +297,4 @@ function assemble_normal_system!(
     end
 end
 
-sparse_csc_format(::Type{Array}) = SparseMatrixCSC
+sparse_csc_format(::Type{<:Array}) = SparseMatrixCSC
