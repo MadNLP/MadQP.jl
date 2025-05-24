@@ -175,9 +175,9 @@ end
 function MadNLP.build_kkt!(kkt::NormalKKTSystem)
     m, n = kkt.m, kkt.n
     D = kkt.buffer_n
-    Cp = kkt.aug_com.colptr
-    Cj = kkt.aug_com.rowval
-    Cx = kkt.aug_com.nzval
+    Cp = _colptr(kkt.aug_com)
+    Cj = _rowval(kkt.aug_com)
+    Cx = _nzval(kkt.aug_com)
     Ap = _colptr(kkt.AT)
     Aj = _rowval(kkt.AT)
     Ax = _nzval(kkt.AT)
