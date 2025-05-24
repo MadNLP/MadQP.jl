@@ -92,7 +92,15 @@ function MadNLP.create_kkt_system(
     AT = CSC <: SparseArrays.SparseMatrixCSC ? CSC(ntot, m, Ap, Aj, Ax) : CSC(Ap, Aj, Ax, (ntot, m))
 
     # Assemble normal KKT system in CSR format
-    AAp, AAj = build_normal_system(m, ntot, Ap, Aj)
+    if CSC <: SparseArrays.SparseMatrixCSC
+        AAp, AAj = build_normal_system(m, ntot, Ap, Aj)
+    else
+        # Target sparse gemm in CUSPARSE
+        S = A * AT
+        S = triu(S)  # <-- S is in CSC format, so we need triu!
+        AAp = A.colPtr
+        AAj = A.rowVal
+    end
     AAx = VT(undef, length(AAj))
 
     aug_com = CSC <: SparseArrays.SparseMatrixCSC ? CSC(m, m, AAp, AAj, AAx) : CSC(AAp, AAj, AAx, (m, m))
@@ -218,4 +226,3 @@ function MadNLP.mul!(w::MadNLP.AbstractKKTVector{T}, kkt::NormalKKTSystem, v::Ma
     MadNLP._kktmul!(w,v,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
     return w
 end
-
