@@ -178,9 +178,9 @@ function MadNLP.build_kkt!(kkt::NormalKKTSystem)
     Cp = kkt.aug_com.colptr
     Cj = kkt.aug_com.rowval
     Cx = kkt.aug_com.nzval
-    Ap = kkt.AT.colptr
-    Aj = kkt.AT.rowval
-    Ax = kkt.AT.nzval
+    Ap = _colptr(kkt.AT)
+    Aj = _rowval(kkt.AT)
+    Ax = _nzval(kkt.AT)
 
     # Build normal matrix A Σ⁻¹ Aᵀ
     D .= 1.0 ./ kkt.pr_diag

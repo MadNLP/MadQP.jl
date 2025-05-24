@@ -240,3 +240,6 @@ function MadQP.build_normal_system(
 end
 
 MadQP.sparse_csc_format(::Type{<:CuArray}) = CuSparseMatrixCSC
+MadQP._colptr(A::CuSparseMatrixCSC) = A.colPtr
+MadQP._rowval(A::CuSparseMatrixCSC) = A.rowVal
+MadQP._nzval(A::CuSparseMatrixCSC) = A.nzVal
