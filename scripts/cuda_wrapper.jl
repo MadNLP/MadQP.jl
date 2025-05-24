@@ -140,7 +140,7 @@ function MadNLP._build_scale_augmented_system_coo!(dest, src, scaling::CuArray, 
     KernelAbstractions.synchronize(backend)
 end
 
-@kernel function assemble_normal_system_kernel!(@Const(n_rows), @Const(Jtp), @Const(Jtj), @Const(Jtx),
+@kernel function assemble_normal_system_kernel!(@Const(n_rows), @Const(n_cols), @Const(Jtp), @Const(Jtj), @Const(Jtx),
                                                 @Const(Cp), @Const(Cj), Cx, @Const(Dx), @Const(Tv))
     i = @index(Global, Linear)
 
