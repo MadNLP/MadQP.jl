@@ -296,3 +296,5 @@ function assemble_normal_system!(
         end
     end
 end
+
+sparse_csc_format(::Type{<:Array}) = SparseArrays.SparseMatrixCSC

@@ -85,3 +85,158 @@ function LinearAlgebra.mul!(y::CuVector{T}, A::MadQPOperator{T}, x::CuVector{T})
     beta = Ref{T}(zero(T))
     CUSPARSE.cusparseSpMV(CUSPARSE.handle(), A.transa, alpha, A.descA, descX, beta, descY, T, algo, A.buffer)
 end
+
+function MadQP.coo_to_csr(
+    n_rows,
+    n_cols,
+    Ai::CuVector{Ti},
+    Aj::CuVector{Ti},
+    Ax::CuVector{Tv},
+) where {Tv, Ti}
+    @assert length(Ai) == length(Aj) == length(Ax)
+    B = sparse(Ai, Aj, Ax, n_rows, n_cols; fmt=:csr)
+    return (B.rowPtr, B.colVal, B.nzVal)
+end
+
+# Should be backported in MadNLPGPU.jl in the future
+@kernel function _scale_augmented_system_coo_kernel!(dest_V, @Const(src_I), @Const(src_J), @Const(src_V), @Const(scaling), @Const(n), @Const(m))
+    k = @index(Global, Linear)
+    i = src_I[k]
+    j = src_J[k]
+
+    # Primal regularization pr_diag
+    if k <= n
+        dest_V[k] = src_V[k]
+    # Hessian block
+    elseif i <= n && j <= n
+        dest_V[k] = src_V[k] * scaling[i] * scaling[j]
+    # Jacobian block
+    elseif n + 1 <= i <= n + m && j <= n
+        dest_V[k] = src_V[k] * scaling[j]
+    # Dual regularization du_diag
+    elseif (n + 1 <= i <= n + m) && (n + 1 <= j <= n + m)
+        dest_V[k] = src_V[k]
+    end
+    nothing
+end
+
+function MadNLP._build_scale_augmented_system_coo!(dest, src, scaling::CuArray, n, m)
+    backend = CUDABackend()
+    kernel! = _scale_augmented_system_coo_kernel!(backend)
+    N = nnz(src)
+    kernel!(dest.V, src.I, src.J, src.V, scaling, n, m; ndrange = N)
+end
+
+@kernel function assemble_normal_system_kernel!(@Const(n_rows), @Const(n_cols), @Const(Jtp), @Const(Jtj), @Const(Jtx),
+                                                @Const(Cp), @Const(Cj), Cx, @Const(Dx))
+    i = @index(Global, Linear)
+    Tv = eltype(Cx)
+
+    # Thread-local buffer
+    buffer = @localmem Tv n_cols
+    for k = 1:n_cols
+        buffer[k] = 0
+    end
+
+    # Step 1: buffer[j] = J[i,j] * Dx[j]
+    for c in Jtp[i]:Jtp[i+1]-1
+        j = Jtj[c]
+        buffer[j] = Jtx[c] * Dx[j]
+    end
+
+    # Step 2: compute dot-products for row i of JᵀDJ
+    for c in Cp[i]:Cp[i+1]-1
+        j = Cj[c]
+        acc = zero(Tv)
+        for d in Jtp[j]:Jtp[j+1]-1
+            k = Jtj[d]
+            acc += buffer[k] * Jtx[d]
+        end
+        Cx[c] = acc
+    end
+    nothing
+end
+
+function MadQP.assemble_normal_system!(n_rows, n_cols, Jtp, Jtj, Jtx, Cp, Cj, Cx, Dx::CuArray)
+    backend = CUDABackend()
+    kernel! = assemble_normal_system_kernel!(backend)
+    kernel!(n_rows, n_cols, Jtp, Jtj, Jtx, Cp, Cj, Cx, Dx; ndrange = n_rows)
+end
+
+@kernel function count_normal_nnz!(Cp, @Const(Jtp), @Const(Jtj), @Const(n_rows), @Const(n_cols))
+    i = @index(Global, Linear)
+
+    # thread-local binary buffer
+    xb = @localmem UInt8 n_cols
+    for k = 1:n_cols
+        xb[k] = 0
+    end
+
+    for c = Jtp[i]:Jtp[i+1]-1
+        j = Jtj[c]
+        xb[j] = 1
+    end
+
+    count = 0
+    for j = i:n_rows
+        for c = Jtp[j]:Jtp[j+1]-1
+            k = Jtj[c]
+            if xb[k] == 1
+                count += 1
+                break
+            end
+        end
+    end
+
+    Cp[i+1] = count
+    nothing
+end
+
+@kernel function fill_normal_indices!(Cj, @Const(Cp), @Const(Jtp), @Const(Jtj), @Const(n_rows), @Const(n_cols))
+    i = @index(Global, Linear)
+
+    xb = @localmem UInt8 n_cols
+    for k = 1:n_cols
+        xb[k] = 0
+    end
+
+    for c = Jtp[i]:Jtp[i+1]-1
+        j = Jtj[c]
+        xb[j] = 1
+    end
+
+    pos = Cp[i]
+    for j = i:n_rows
+        for c = Jtp[j]:Jtp[j+1]-1
+            k = Jtj[c]
+            if xb[k] == 1
+                Cj[pos] = j
+                pos += 1
+                break
+            end
+        end
+    end
+    nothing
+end
+
+function MadQP.build_normal_system(
+    n_rows,
+    n_cols,
+    Jtp::CuVector{Ti},
+    Jtj::CuVector{Ti},
+) where Ti
+    backend = CUDABackend()
+    Cp = CUDA.ones(Ti, n_rows + 1)
+    kernel1! = count_normal_nnz!(backend)
+    kernel1!(Cp, Jtp, Jtj, n_rows, n_cols; ndrange = n_rows)
+
+    Cp = cumsum(Cp)
+    nnz_JtJ = CUDA.@allowscalar (Cp[end] - 1)
+    Cj = CUDA.zeros(Ti, nnz_JtJ)
+
+    kernel2! = fill_normal_indices!(backend)
+    kernel2!(Cj, Cp, Jtp, Jtj, n_rows, n_cols; ndrange = n_rows)
+    return (Cp, Cj)
+end
+
+MadQP.sparse_csc_format(::Type{<:CuArray}) = CuSparseMatrixCSC
