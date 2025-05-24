@@ -33,6 +33,17 @@ function MadNLP.compress_hessian!(
     MadNLP.transfer!(kkt.hess_com, kkt.hess_raw, kkt.hess_csc_map)
 end
 
+function MadNLP.compress_jacobian!(
+    kkt::MadQP.NormalKKTSystem{T,VT,MT},
+) where {T,VT,MT<:CUSPARSE.CuSparseMatrixCSC{T,Int32}}
+    n_slack = length(kkt.ind_ineq)
+    kkt.A.V[end-n_slack+1:end] .= -1.0
+    # Transfer to the matrix A stored in CSC format
+    fill!(kkt.AT.nzVal, 0.0)
+    kkt.AT.nzVal .= kkt.A.V[kkt.A_csr_map]
+    return
+end
+
 mutable struct MadQPOperator{T,M,M2} <: AbstractMatrix{T}
     type::Type{T}
     m::Int
