@@ -96,7 +96,7 @@ function MadNLP.create_kkt_system(
         AAp, AAj = build_normal_system(m, ntot, Ap, Aj)
     else
         # Target sparse gemm in CUSPARSE
-        S = sparse(transpose(A)) * AT
+        S = SparseArrays.sparse(transpose(A)) * AT
         S = triu(S)  # <-- S is in CSC format, so we need triu!
         AAp = A.colPtr
         AAj = A.rowVal
