@@ -269,7 +269,8 @@ function mpc!(solver::MadNLP.AbstractMadNLPSolver)
             solver.jacl,
             1.0,
         ) / max(1.0, solver.norm_c)
-        solver.inf_compl = get_optimality_gap(solver, solver.class)
+        solver.inf_compl = get_optimality_gap(solver) / max(1.0, solver.norm_c)
+
         MadNLP.print_iter(solver)
 
         #####

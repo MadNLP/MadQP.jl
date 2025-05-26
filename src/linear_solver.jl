@@ -38,7 +38,7 @@ function solve_system!(
         solver.logger,
         @sprintf("Residual after linear solve: %6.2e", residual_ratio),
     )
-    if opt.check_residual && (residual_ratio > opt.tol_linear_solve)
+    if isnan(residual_ratio) || (opt.check_residual && (residual_ratio > opt.tol_linear_solve))
         throw(MadNLP.SolveException)
     end
     return d
