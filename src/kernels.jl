@@ -432,13 +432,7 @@ function dual_objective(solver::MPCSolver)
     return dobj
 end
 
-function get_optimality_gap(solver::MPCSolver, ::LinearProgram)
-    primal_obj = solver.obj_val
-    dual_obj = dual_objective(solver)
-    return (primal_obj - dual_obj) / max(1.0, abs(dual_obj))
-end
-
-function get_optimality_gap(solver::MPCSolver, ::QuadraticProgram)
+function get_optimality_gap(solver::MPCSolver)
     return MadNLP.get_inf_compl(
         solver.x_lr,
         solver.xl_r,
@@ -450,3 +444,4 @@ function get_optimality_gap(solver::MPCSolver, ::QuadraticProgram)
         1.0,
     )
 end
+
