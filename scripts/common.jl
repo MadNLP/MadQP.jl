@@ -4,6 +4,7 @@ using GZip
 using CodecBzip2
 using HSL
 using NLPModels
+using SparseArrays
 
 import QuadraticModels: SparseMatrixCOO
 
