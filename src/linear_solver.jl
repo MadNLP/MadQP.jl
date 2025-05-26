@@ -33,7 +33,7 @@ function solve_system!(
     norm_p = norm(MadNLP.full(p), Inf)
     norm_d = norm(MadNLP.full(d), Inf)
 
-    residual_ratio = norm_w / (min(norm_p, 1e6 * norm_d) + norm_d)
+    residual_ratio = norm_w / max(one(T), norm_p)
     MadNLP.@debug(
         solver.logger,
         @sprintf("Residual after linear solve: %6.2e", residual_ratio),
