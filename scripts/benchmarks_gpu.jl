@@ -1,6 +1,6 @@
 using DelimitedFiles
 using MadNLP
-using MadQP
+using MadIPM
 using QPSReader
 using QuadraticModels
 
@@ -34,7 +34,7 @@ function run_benchmark(src, probs; reformulate::Bool=false, test_reader::Bool=fa
             qp_gpu = transfer_to_gpu(qp_cpu)
 
             try
-                solver = MadQP.MPCSolver(
+                solver = MadIPM.MPCSolver(
                     qp_gpu;
                     max_iter=300,
                     tol=1e-7,
@@ -44,11 +44,11 @@ function run_benchmark(src, probs; reformulate::Bool=false, test_reader::Bool=fa
                     max_ncorr=3,
                     bound_push=1.0,
                     scaling=true,
-                    step_rule=MadQP.AdaptiveStep(0.995),
-                    regularization=MadQP.FixedRegularization(1e-8, -1e-8),
+                    step_rule=MadIPM.AdaptiveStep(0.995),
+                    regularization=MadIPM.FixedRegularization(1e-8, -1e-8),
                     rethrow_error=true,
                 )
-                res = MadQP.solve!(solver)
+                res = MadIPM.solve!(solver)
                 results[k, 1] = Int(qp_gpu.meta.nvar)
                 results[k, 2] = Int(qp_gpu.meta.ncon)
                 results[k, 3] = Int(qp_gpu.meta.nnzj)

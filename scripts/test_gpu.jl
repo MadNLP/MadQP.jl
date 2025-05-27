@@ -1,6 +1,6 @@
 using LinearAlgebra
 using MadNLP
-using MadQP
+using MadIPM
 
 include("common.jl")
 include("cuda_wrapper.jl")
@@ -26,9 +26,9 @@ standard_qp = standard_form_qp(scaled_qp)
 qp_gpu = transfer_to_gpu(standard_qp)
 
 for (kkt, algo) in ((MadNLP.ScaledSparseKKTSystem, MadNLP.LDL),
-                    (MadNLP.SparseKKTSystem      , MadNLP.LDL),)  # (MadQP.NormalKKTSystem, MadNLP.CHOLESKY)
+                    (MadNLP.SparseKKTSystem      , MadNLP.LDL),)  # (MadIPM.NormalKKTSystem, MadNLP.CHOLESKY)
 
-    solver = MadQP.MPCSolver(
+    solver = MadIPM.MPCSolver(
         qp_gpu;
         max_iter=100,
         tol=1e-7,
@@ -38,10 +38,10 @@ for (kkt, algo) in ((MadNLP.ScaledSparseKKTSystem, MadNLP.LDL),
         print_level=MadNLP.INFO,
         scaling=true,
         max_ncorr=0,
-        step_rule=MadQP.AdaptiveStep(0.995),
-        regularization=MadQP.FixedRegularization(1e-8, -1e-8),
+        step_rule=MadIPM.AdaptiveStep(0.995),
+        regularization=MadIPM.FixedRegularization(1e-8, -1e-8),
         rethrow_error=true,
     )
 
-    MadQP.solve!(solver)
+    MadIPM.solve!(solver)
 end
