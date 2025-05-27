@@ -39,13 +39,13 @@ jobs:
           Pkg.activate(".")
           path_HSL_jll = "/scratch/github-actions/actions_runner_hsl/HSL_jll.jl.v" * ENV["HSL_VERSION"]
           Pkg.develop(path=path_HSL_jll)
-      - name: Test MadQP.jl on CPU
+      - name: Test MadIPM.jl on CPU
         shell: julia --color=yes {0}
         run: |
           using Pkg
           Pkg.develop(path=".")
-          Pkg.test("MadQP")
-      - name: Test MadQP.jl on GPU
+          Pkg.test("MadIPM")
+      - name: Test MadIPM.jl on GPU
         shell: julia --color=yes {0}
         run: |
           using Pkg
@@ -53,4 +53,4 @@ jobs:
           Pkg.develop(path=".")
           path_HSL_jll = "/scratch/github-actions/actions_runner_hsl/HSL_jll.jl.v" * ENV["HSL_VERSION"]
           Pkg.develop(path=path_HSL_jll)
-          include("/scratch/github-actions/actions_runner_madqp/_work/MadQP.jl/MadQP.jl/scripts/test_gpu.jl")
+          include("/scratch/github-actions/actions_runner_madqp/_work/MadIPM.jl/MadIPM.jl/scripts/test_gpu.jl")
