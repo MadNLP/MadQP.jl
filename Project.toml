@@ -1,6 +1,6 @@
 name = "MadIPM"
 uuid = "4406d55e-1099-4ca6-ac6a-6cf051b10024"
-authors = ["François Pacaud <francoispacaud8@gmail.com>", "amontoison <amontoison@anl.gov>"]
+authors = ["François Pacaud <francoispacaud8@gmail.com>", "Alexis Montoison <amontoison@anl.gov>"]
 version = "0.1.0"
 
 [deps]
