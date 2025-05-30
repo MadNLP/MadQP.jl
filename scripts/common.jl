@@ -117,6 +117,7 @@ function presolve_qp(qp::QuadraticModel)
             qp_presolved.counters,
             qp_presolved.data,
         )
+        resize!(new_qp.data.v, NLPModels.get_nvar(new_qp))
         return new_qp, true
     else
         # unbounded, infeasible or nvarps == 0

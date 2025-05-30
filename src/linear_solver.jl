@@ -27,7 +27,7 @@ function solve_system!(
 
     # Check residual
     w = solver._w1
-    copyto!(MadQP.full(w), MadQP.full(p))
+    copyto!(MadNLP.full(w), MadNLP.full(p))
     mul!(w, solver.kkt, d, -one(T), one(T))
     norm_w = norm(MadNLP.full(w), Inf)
     norm_p = norm(MadNLP.full(p), Inf)

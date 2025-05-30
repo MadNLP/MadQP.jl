@@ -33,7 +33,7 @@ function MadNLP.compress_hessian!(
     MadNLP.transfer!(kkt.hess_com, kkt.hess_raw, kkt.hess_csc_map)
 end
 
-mutable struct MadQPOperator{T,M,M2} <: AbstractMatrix{T}
+mutable struct MadIPMOperator{T,M,M2} <: AbstractMatrix{T}
     type::Type{T}
     m::Int
     n::Int
@@ -44,15 +44,15 @@ mutable struct MadQPOperator{T,M,M2} <: AbstractMatrix{T}
     buffer::CuVector{UInt8}
 end
 
-Base.eltype(A::MadQPOperator{T}) where T = T
-Base.size(A::MadQPOperator) = (A.m, A.n)
-SparseArrays.nnz(A::MadQPOperator) = nnz(A.A)
+Base.eltype(A::MadIPMOperator{T}) where T = T
+Base.size(A::MadIPMOperator) = (A.m, A.n)
+SparseArrays.nnz(A::MadIPMOperator) = nnz(A.A)
 
 for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
                                      (:(CuSparseMatrixCSC{T}), :BlasFloat),
                                      (:(CuSparseMatrixCOO{T}), :BlasFloat))
     @eval begin
-        function MadQPOperator(A::$SparseMatrixType; transa::Char='N', symmetric::Bool=false) where T <: $BlasType
+        function MadIPMOperator(A::$SparseMatrixType; transa::Char='N', symmetric::Bool=false) where T <: $BlasType
             m, n = size(A)
             alpha = Ref{T}(one(T))
             beta = Ref{T}(zero(T))
@@ -70,12 +70,12 @@ for (SparseMatrixType, BlasType) in ((:(CuSparseMatrixCSR{T}), :BlasFloat),
             end
             M = typeof(A)
             M2 = typeof(mat)
-            return MadQPOperator{T,M,M2}(T, m, n, A, mat, transa, descA, buffer)
+            return MadIPMOperator{T,M,M2}(T, m, n, A, mat, transa, descA, buffer)
         end
     end
 end
 
-function LinearAlgebra.mul!(y::CuVector{T}, A::MadQPOperator{T}, x::CuVector{T}) where T <: BlasFloat
+function LinearAlgebra.mul!(y::CuVector{T}, A::MadIPMOperator{T}, x::CuVector{T}) where T <: BlasFloat
     (length(y) != A.m) && throw(DimensionMismatch("length(y) != A.m"))
     (length(x) != A.n) && throw(DimensionMismatch("length(x) != A.n"))
     descY = CUSPARSE.CuDenseVectorDescriptor(y)

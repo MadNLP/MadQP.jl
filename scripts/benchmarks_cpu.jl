@@ -1,9 +1,10 @@
 using DelimitedFiles
 using MadNLP
-using MadQP
+using MadIPM
 using MadNLPHSL
 using QPSReader
 using QuadraticModels
+using SparseArrays
 
 include("common.jl")
 include("excluded_problems.jl")
@@ -29,19 +30,20 @@ function run_benchmark(src, probs; reformulate::Bool=false, test_reader::Bool=fa
             qp_cpu = reformulate ? standard_form_qp(scaled_qp) : scaled_qp
 
             try
-                solver = MadQP.MPCSolver(
+                solver = MadIPM.MPCSolver(
                     qp_cpu;
                     max_iter=300,
-                    linear_solver=Ma27Solver,
+                    linear_solver=LDLSolver,
                     print_level=MadNLP.INFO,
                     max_ncorr=3,
-                    bound_push=1.0,
                     scaling=true,
-                    step_rule=MadQP.AdaptiveStep(0.995),
-                    regularization=MadQP.FixedRegularization(1e-8, -1e-8),
+                    step_rule=MadIPM.AdaptiveStep(0.995),
+                    regularization=MadIPM.FixedRegularization(1e-8, -1e-8),
+                    kkt_system=MadIPM.NormalKKTSystem,
                     rethrow_error=true,
+                    mu_min=1e-12,
                 )
-                res = MadQP.solve!(solver)
+                res = MadIPM.solve!(solver)
                 results[k, 1] = Int(qp_cpu.meta.nvar)
                 results[k, 2] = Int(qp_cpu.meta.ncon)
                 results[k, 3] = Int(qp_cpu.meta.nnzj)
