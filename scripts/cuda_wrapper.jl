@@ -35,7 +35,7 @@ function MadNLP.compress_hessian!(
 end
 
 function MadNLP.compress_jacobian!(
-    kkt::MadQP.NormalKKTSystem{T,VT,MT},
+    kkt::MadIPM.NormalKKTSystem{T,VT,MT},
 ) where {T,VT,MT<:CUSPARSE.CuSparseMatrixCSC{T,Int32}}
     n_slack = length(kkt.ind_ineq)
     kkt.A.V[end-n_slack+1:end] .= -1.0
@@ -98,7 +98,7 @@ function LinearAlgebra.mul!(y::CuVector{T}, A::MadIPMOperator{T}, x::CuVector{T}
     CUSPARSE.cusparseSpMV(CUSPARSE.handle(), A.transa, alpha, A.descA, descX, beta, descY, T, algo, A.buffer)
 end
 
-function MadQP.coo_to_csr(
+function MadIPM.coo_to_csr(
     n_rows,
     n_cols,
     Ai::CuVector{Ti},
@@ -173,7 +173,7 @@ end
     nothing
 end
 
-function MadQP.assemble_normal_system!(
+function MadIPM.assemble_normal_system!(
     n_rows,
     n_cols,
     Jtp::CuArray{Ti},
@@ -246,7 +246,7 @@ end
     nothing
 end
 
-function MadQP.build_normal_system(
+function MadIPM.build_normal_system(
     n_rows,
     n_cols,
     Jtp::CuVector{Ti},
@@ -268,7 +268,7 @@ function MadQP.build_normal_system(
     return (Cp, Cj)
 end
 
-MadQP.sparse_csc_format(::Type{<:CuArray}) = CuSparseMatrixCSC
-MadQP._colptr(A::CuSparseMatrixCSC) = A.colPtr
-MadQP._rowval(A::CuSparseMatrixCSC) = A.rowVal
-MadQP._nzval(A::CuSparseMatrixCSC) = A.nzVal
+MadIPM.sparse_csc_format(::Type{<:CuArray}) = CuSparseMatrixCSC
+MadIPM._colptr(A::CuSparseMatrixCSC) = A.colPtr
+MadIPM._rowval(A::CuSparseMatrixCSC) = A.rowVal
+MadIPM._nzval(A::CuSparseMatrixCSC) = A.nzVal
